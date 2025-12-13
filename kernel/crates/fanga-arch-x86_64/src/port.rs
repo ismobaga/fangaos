@@ -20,3 +20,28 @@ pub unsafe fn inb(port: u16) -> u8 {
     asm!("in al, dx", in("dx") port, out("al") value, options(nomem, nostack, preserves_flags));
     value
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_port_operations_compile() {
+        // This test verifies that the port operations compile correctly.
+        // Actual execution requires hardware or QEMU, so we just verify the API.
+        
+        // These operations would be unsafe to actually execute in a test environment
+        // without proper hardware or emulation context, but we can verify the
+        // function signatures and basic properties.
+        
+        // Verify that port numbers are u16
+        let _port: u16 = 0x3F8;
+        
+        // Verify that byte values are u8
+        let _value: u8 = 0x42;
+        
+        // Functions should be available (this ensures they're public)
+        let _outb_fn = outb;
+        let _inb_fn = inb;
+    }
+}

@@ -226,3 +226,96 @@ pub fn stats() -> &'static MemoryStats {
     &MEMORY_STATS
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_memory_stats_creation() {
+        let stats = MemoryStats::new();
+        assert_eq!(stats.total_physical(), 0);
+        assert_eq!(stats.used_physical(), 0);
+        assert_eq!(stats.total_heap(), 0);
+        assert_eq!(stats.used_heap(), 0);
+    }
+
+    #[test]
+    fn test_physical_memory_tracking() {
+        let stats = MemoryStats::new();
+        
+        stats.set_total_physical(1024 * 1024); // 1 MiB
+        assert_eq!(stats.total_physical(), 1024 * 1024);
+        
+        stats.set_used_physical(512 * 1024); // 512 KiB
+        assert_eq!(stats.used_physical(), 512 * 1024);
+        assert_eq!(stats.free_physical(), 512 * 1024);
+    }
+
+    #[test]
+    fn test_heap_memory_tracking() {
+        let stats = MemoryStats::new();
+        
+        stats.set_total_heap(64 * 1024); // 64 KiB
+        assert_eq!(stats.total_heap(), 64 * 1024);
+        
+        stats.record_heap_alloc(1024);
+        assert_eq!(stats.used_heap(), 1024);
+        assert_eq!(stats.heap_allocations(), 1);
+        assert_eq!(stats.active_heap_allocations(), 1);
+        
+        stats.record_heap_alloc(2048);
+        assert_eq!(stats.used_heap(), 3072);
+        assert_eq!(stats.heap_allocations(), 2);
+        assert_eq!(stats.active_heap_allocations(), 2);
+        
+        stats.record_heap_dealloc(1024);
+        assert_eq!(stats.used_heap(), 2048);
+        assert_eq!(stats.heap_deallocations(), 1);
+        assert_eq!(stats.active_heap_allocations(), 1);
+    }
+
+    #[test]
+    fn test_page_tracking() {
+        let stats = MemoryStats::new();
+        
+        stats.record_page_alloc();
+        assert_eq!(stats.page_allocations(), 1);
+        assert_eq!(stats.active_page_allocations(), 1);
+        
+        stats.record_page_alloc();
+        stats.record_page_alloc();
+        assert_eq!(stats.page_allocations(), 3);
+        assert_eq!(stats.active_page_allocations(), 3);
+        
+        stats.record_page_dealloc();
+        assert_eq!(stats.page_deallocations(), 1);
+        assert_eq!(stats.active_page_allocations(), 2);
+    }
+
+    #[test]
+    fn test_free_memory_calculations() {
+        let stats = MemoryStats::new();
+        
+        stats.set_total_physical(1000);
+        stats.set_used_physical(600);
+        assert_eq!(stats.free_physical(), 400);
+        
+        stats.set_total_heap(500);
+        stats.record_heap_alloc(200);
+        assert_eq!(stats.free_heap(), 300);
+    }
+
+    #[test]
+    fn test_saturating_operations() {
+        let stats = MemoryStats::new();
+        
+        // Test free_physical with underflow protection
+        stats.set_used_physical(100);
+        stats.set_total_physical(50);
+        assert_eq!(stats.free_physical(), 0); // Should saturate to 0
+        
+        // Test active allocations with underflow protection
+        stats.record_page_dealloc();
+        assert_eq!(stats.active_page_allocations(), 0); // Should saturate to 0
+    }
+}

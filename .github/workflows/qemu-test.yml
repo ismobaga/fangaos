@@ -1,0 +1,63 @@
+name: QEMU Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  qemu-test:
+    name: QEMU Boot Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rust-src
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          qemu-system-x86 \
+          xorriso \
+          mtools \
+          ovmf
+    
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: kernel/target
+        key: ${{ runner.os }}-cargo-qemu-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-qemu-
+    
+    - name: Build ISO
+      run: make all
+    
+    - name: Run QEMU test
+      run: |
+        chmod +x scripts/qemu-test.sh
+        ./scripts/qemu-test.sh
+    
+    - name: Upload QEMU logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: qemu-logs
+        path: |
+          qemu-output.log
+          qemu-serial.log
+        retention-days: 7
+        if-no-files-found: ignore

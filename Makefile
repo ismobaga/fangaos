@@ -194,6 +194,7 @@ limine/limine:
 .PHONY: kernel
 kernel:
 	cd kernel && cargo build --release \
+		--features kernel-bin \
 		-Z build-std=core,compiler_builtins,alloc \
 		-Z build-std-features=compiler-builtins-mem \
 		--target x86_64-fanga-kernel.json
@@ -276,3 +277,23 @@ clean:
 .PHONY: distclean
 distclean: clean
 	rm -rf limine ovmf
+
+.PHONY: test
+test:
+	@echo "Running unit tests..."
+	cd kernel/crates/fanga-kernel && cargo test --lib --target x86_64-unknown-linux-gnu
+	@echo "Running integration tests..."
+	cd kernel/crates/fanga-kernel && cargo test --tests --target x86_64-unknown-linux-gnu
+	@echo "Running arch tests..."
+	cd kernel/crates/fanga-arch-x86_64 && cargo test --lib --target x86_64-unknown-linux-gnu
+
+.PHONY: test-qemu
+test-qemu: $(IMAGE_NAME).iso
+	@echo "Running QEMU integration test..."
+	./scripts/qemu-test.sh
+
+.PHONY: coverage
+coverage:
+	@echo "Generating test coverage report..."
+	cd kernel/crates/fanga-kernel && \
+		cargo tarpaulin --target x86_64-unknown-linux-gnu --out Html --output-dir ../../coverage

@@ -33,8 +33,19 @@ ovmf/*-vars-*.fd
 # QEMU / Debug
 # =========================
 qemu.log
+qemu-output.log
+qemu-serial.log
 *.log
 *.gdb
+
+# =========================
+# Test artifacts
+# =========================
+coverage/
+*.profraw
+*.profdata
+tarpaulin-report.html
+cobertura.xml
 
 # =========================
 # Editor / OS junk
