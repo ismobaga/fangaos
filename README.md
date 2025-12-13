@@ -20,6 +20,12 @@ A modern x86_64 operating system kernel written in Rust.
   - Hardware interrupt support (PIC and APIC)
   - Keyboard input handling
 
+- **System Calls**
+  - SYSCALL/SYSRET instruction support
+  - Basic syscalls (read, write, exit)
+  - Syscall argument validation
+  - Error handling and return codes
+
 - **I/O Subsystem**
   - Framebuffer console
   - Serial port communication
@@ -144,6 +150,7 @@ fangaos/
 - [Memory Management](docs/MEMORY_MANAGEMENT.md) - Memory subsystem design
 - [Interrupt Handling](docs/INTERRUPT_HANDLING.md) - Interrupt architecture
 - [Input/Output](docs/INPUT_OUTPUT.md) - I/O subsystem design
+- [System Calls](docs/SYSTEM_CALLS.md) - System call interface
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
 ## Development
@@ -219,9 +226,10 @@ FangaOS is currently in active development. Core features implemented:
 - ✅ Memory management (PMM, VMM, heap)
 - ✅ Interrupt handling (exceptions and IRQs)
 - ✅ Basic I/O (framebuffer, serial, keyboard)
+- ✅ System calls (syscall/sysret interface)
 - ✅ Comprehensive test suite
 - ✅ CI/CD pipeline
-- 🚧 Process management (planned)
+- 🚧 Process management (in progress)
 - 🚧 File system (planned)
 - 🚧 Networking (planned)
 

@@ -13,6 +13,7 @@ extern crate alloc;
 
 pub mod memory;
 pub mod task;
+pub mod syscall;
 
 // IO module only available in no_std builds
 #[cfg(not(test))]
