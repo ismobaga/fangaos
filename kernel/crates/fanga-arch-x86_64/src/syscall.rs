@@ -198,13 +198,13 @@ fn sys_exec(_path: *const u8, _argv: *const *const u8) -> i64 {
 ///
 /// This is called directly by the CPU when a SYSCALL instruction is executed.
 /// It must:
-/// 1. Save the user-space stack pointer
-/// 2. Switch to kernel stack
-/// 3. Save all registers
-/// 4. Call syscall_handler
-/// 5. Restore registers
-/// 6. Switch back to user stack
-/// 7. Return via SYSRET
+/// 1. Save all registers
+/// 2. Call syscall_handler
+/// 3. Restore registers
+/// 4. Return via SYSRET
+///
+/// NOTE: This is a minimal implementation for kernel-mode syscall testing.
+/// A full implementation would need to handle user/kernel stack switching.
 #[unsafe(naked)]
 #[no_mangle]
 unsafe extern "C" fn syscall_entry() -> ! {
@@ -213,12 +213,6 @@ unsafe extern "C" fn syscall_entry() -> ! {
         // r11 = RFLAGS (saved by SYSCALL instruction)
         // rax = syscall number
         // rdi, rsi, rdx, r10, r8, r9 = arguments
-        
-        // Save user stack pointer
-        "mov gs:0x10, rsp",          // Save user RSP to TSS.rsp0 equivalent
-        
-        // Switch to kernel stack (for now, use current stack)
-        // TODO: Load kernel stack from TSS when we have per-process kernel stacks
         
         // Save user registers on stack
         "push rcx",                   // Return RIP
@@ -231,55 +225,43 @@ unsafe extern "C" fn syscall_entry() -> ! {
         "push r15",
         
         // Prepare arguments for syscall_handler
+        // C calling convention: rdi, rsi, rdx, rcx, r8, r9, [stack]
         // syscall_handler(syscall_number, arg1, arg2, arg3, arg4, arg5, arg6)
-        // Already in correct registers: rax=num, rdi=arg1, rsi=arg2, rdx=arg3
-        // Move r10 to rcx (arg4), r8 and r9 are already correct
-        "mov rcx, r10",               // arg4
-        // r8 = arg5 (already correct)
-        // r9 = arg6 (already correct)
         
-        // rax already contains syscall number
-        "mov rdi, rax",               // syscall_number
-        "mov rsi, rdi",               // Save original rdi
-        "mov rdx, rsi",               // Save original rsi
-        "mov rcx, rdx",               // Save original rdx
-        // We need to rearrange...
-        
-        // Let me redo this properly:
         // Current state:
         // rax = syscall number
         // rdi = arg1
-        // rsi = arg2  
+        // rsi = arg2
         // rdx = arg3
-        // r10 = arg4
+        // r10 = arg4 (not rcx, as SYSCALL uses it)
         // r8 = arg5
         // r9 = arg6
         
-        // Need for C function:
-        // rdi = syscall_number
-        // rsi = arg1
-        // rdx = arg2
-        // rcx = arg3
-        // r8 = arg4
-        // r9 = arg5
-        // stack = arg6
-        
-        // Save arguments
+        // Save arguments that will be overwritten
         "push r9",                    // arg6
-        "mov r9, r8",                 // arg5
-        "mov r8, r10",                // arg4
-        "mov rcx, rdx",               // arg3
-        "mov rdx, rsi",               // arg2
-        "mov rsi, rdi",               // arg1
-        "mov rdi, rax",               // syscall_number
+        "push r8",                    // arg5
+        "push r10",                   // arg4
+        "push rdx",                   // arg3
+        "push rsi",                   // arg2
+        "push rdi",                   // arg1
+        "push rax",                   // syscall number
+        
+        // Now rearrange for C calling convention
+        "pop rdi",                    // syscall_number
+        "pop rsi",                    // arg1
+        "pop rdx",                    // arg2
+        "pop rcx",                    // arg3
+        "pop r8",                     // arg4
+        "pop r9",                     // arg5
+        // arg6 is still on stack, which is correct for 7th C argument
         
         // Call the handler
         "call syscall_handler",
         
-        // Return value is in rax
+        // Return value is in rax - leave it there
         
-        // Restore arg6 from stack
-        "pop r9",
+        // Clean up arg6 from stack
+        "add rsp, 8",
         
         // Restore user registers
         "pop r15",
@@ -291,10 +273,11 @@ unsafe extern "C" fn syscall_entry() -> ! {
         "pop r11",                    // RFLAGS
         "pop rcx",                    // Return RIP
         
-        // Restore user stack
-        "mov rsp, gs:0x10",
-        
         // Return to user space
+        // NOTE: sysretq requires:
+        // - rcx = return RIP
+        // - r11 = RFLAGS
+        // - rax = return value (already set)
         "sysretq",
     )
 }
