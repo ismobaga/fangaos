@@ -50,6 +50,16 @@ pub const PAGE_SIZE: usize = 4096;
 type BitmapEntry = u64;
 const BITS_PER_ENTRY: usize = 64;
 
+#[inline(always)]
+const fn align_up(x: u64, a: u64) -> u64 {
+    (x + (a - 1)) & !(a - 1)
+}
+
+#[inline(always)]
+const fn align_down(x: u64, a: u64) -> u64 {
+    x & !(a - 1)
+}
+
 /// Physical Memory Manager using bitmap allocation
 pub struct PhysicalMemoryManager {
     /// Pointer to the bitmap stored in higher-half direct map
@@ -93,11 +103,7 @@ impl PhysicalMemoryManager {
     ///
     /// # Safety
     /// This function must be called exactly once during kernel initialization
-    pub unsafe fn init(
-        &mut self,
-        memmap: &limine::response::MemoryMapResponse,
-        hhdm_offset: u64,
-    ) {
+    pub unsafe fn init(&mut self, memmap: &limine::response::MemoryMapResponse, hhdm_offset: u64) {
         // Find the highest physical address
         let mut highest = 0u64;
         for entry in memmap.entries() {
@@ -142,8 +148,11 @@ impl PhysicalMemoryManager {
         let mut free_count = 0usize;
         for entry in memmap.entries() {
             if entry.entry_type == limine::memory_map::EntryType::USABLE {
-                let start_page = (entry.base as usize) / PAGE_SIZE;
-                let page_count = (entry.length as usize) / PAGE_SIZE;
+                let start = align_up(entry.base, PAGE_SIZE as u64);
+                let end = align_down(entry.base + entry.length, PAGE_SIZE as u64);
+
+                let start_page = (start as usize) / PAGE_SIZE;
+                let page_count = ((end - start) as usize) / PAGE_SIZE;
 
                 for page in start_page..(start_page + page_count) {
                     self.mark_page_free(page);
