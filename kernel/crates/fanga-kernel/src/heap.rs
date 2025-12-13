@@ -226,6 +226,7 @@ impl HeapAllocator {
 /// Aligns a value up to the given alignment
 #[inline]
 fn align_up(val: usize, align: usize) -> usize {
+    debug_assert!(align.is_power_of_two(), "Alignment must be a power of two");
     (val + align - 1) & !(align - 1)
 }
 
@@ -253,10 +254,17 @@ impl GlobalHeapAllocator {
 
 unsafe impl GlobalAlloc for GlobalHeapAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.inner.lock().alloc(layout)
+        let ptr = self.inner.lock().alloc(layout);
+        if !ptr.is_null() && layout.size() > 0 {
+            crate::memory_stats::stats().record_heap_alloc(layout.size());
+        }
+        ptr
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        if layout.size() > 0 {
+            crate::memory_stats::stats().record_heap_dealloc(layout.size());
+        }
         self.inner.lock().dealloc(ptr, layout)
     }
 }
