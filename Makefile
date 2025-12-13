@@ -12,7 +12,7 @@ kernel:
 limine:
 	@if [ ! -f boot/limine/limine-bios.sys ]; then \
 		echo "Initializing Limine submodule..."; \
-		git submodule update --init --recursive boot/limine; \
+		git submodule update --init boot/limine; \
 	fi
 	@if [ ! -f boot/limine/limine ]; then \
 		echo "Building Limine utility..."; \
@@ -37,7 +37,7 @@ iso: kernel limine
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
 		boot/iso_root -o $(ISO)
 
-	./boot/limine/limine bios-install $(ISO) || ./boot/limine/limine-install $(ISO)
+	./boot/limine/limine bios-install $(ISO)
 
 run: iso
 	qemu-system-x86_64 \
