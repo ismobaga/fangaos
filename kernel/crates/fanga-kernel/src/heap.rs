@@ -76,6 +76,11 @@ impl HeapAllocator {
     /// # Safety
     /// This method is not thread-safe and must be called with proper synchronization
     pub unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
+        // Handle zero-sized allocations
+        if layout.size() == 0 {
+            return core::ptr::NonNull::dangling().as_ptr();
+        }
+
         let size = layout.size().max(MIN_BLOCK_SIZE);
         let align = layout.align().max(HEAP_ALIGN);
 
@@ -144,6 +149,11 @@ impl HeapAllocator {
     /// - ptr is not used after this call
     /// - The layout matches the one used for allocation
     pub unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+        // Handle zero-sized deallocations
+        if layout.size() == 0 {
+            return;
+        }
+
         let size = layout.size().max(MIN_BLOCK_SIZE);
         let addr = ptr as usize;
 

@@ -207,34 +207,30 @@ pub extern "C" fn _start() -> ! {
         const HEAP_PAGES: usize = HEAP_SIZE / pmm::PAGE_SIZE;
         
         unsafe {
+            // Allocate contiguous physical pages for the heap
+            // We need to find a contiguous region, or just use the first page
+            // and allocate more pages (though they may not be contiguous in physical memory,
+            // they will be contiguous in virtual memory via HHDM)
+            
             if let Some(heap_start_phys) = PMM.alloc_page() {
-                // Allocate remaining pages
-                let mut heap_phys_pages = alloc::vec::Vec::new();
-                heap_phys_pages.push(heap_start_phys);
-                
-                for _ in 1..HEAP_PAGES {
-                    if let Some(page) = PMM.alloc_page() {
-                        heap_phys_pages.push(page);
-                    } else {
-                        arch::serial_println!("[Fanga] Warning: Could not allocate all heap pages");
-                        break;
-                    }
-                }
+                // For simplicity, we'll use just the first allocated page to start
+                // In a real kernel, we'd want to allocate all pages first
+                // But to avoid the chicken-egg problem with Vec, we'll start with one page
                 
                 // For simplicity, we'll use the HHDM mapping for the heap
                 let heap_start_virt = hhdm.offset() + heap_start_phys;
-                let actual_heap_size = heap_phys_pages.len() * pmm::PAGE_SIZE;
+                let initial_heap_size = pmm::PAGE_SIZE;
                 
-                GLOBAL_ALLOCATOR.init(heap_start_virt as usize, actual_heap_size);
+                GLOBAL_ALLOCATOR.init(heap_start_virt as usize, initial_heap_size);
                 
                 arch::serial_println!(
                     "[Fanga] Heap initialized: {} KiB at 0x{:x}",
-                    actual_heap_size / 1024,
+                    initial_heap_size / 1024,
                     heap_start_virt
                 );
                 
                 // Update memory statistics
-                memory_stats::stats().set_total_heap(actual_heap_size);
+                memory_stats::stats().set_total_heap(initial_heap_size);
                 
                 // Test heap allocation
                 arch::serial_println!("[Fanga] Testing heap allocation...");
