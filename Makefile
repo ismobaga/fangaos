@@ -1,7 +1,7 @@
 KERNEL_ELF=kernel/target/x86_64-fanga-kernel/release/fanga-kernel
 ISO=build/fangaos.iso
 
-.PHONY: iso run kernel clean
+.PHONY: iso run kernel clean limine
 
 kernel:
 	cd kernel && cargo build \
@@ -9,7 +9,17 @@ kernel:
   -Zbuild-std-features=compiler-builtins-mem \
   -p fanga-kernel --release
 
-iso: kernel
+limine:
+	@if [ ! -f boot/limine/limine-bios.sys ]; then \
+		echo "Initializing Limine submodule..."; \
+		git submodule update --init boot/limine || exit 1; \
+	fi
+	@if [ ! -x boot/limine/limine ]; then \
+		echo "Building Limine utility..."; \
+		$(MAKE) -C boot/limine || exit 1; \
+	fi
+
+iso: kernel limine
 	mkdir -p build boot/iso_root/boot boot/iso_root/EFI/BOOT
 	cp $(KERNEL_ELF) boot/iso_root/boot/kernel.elf
 
@@ -27,7 +37,7 @@ iso: kernel
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
 		boot/iso_root -o $(ISO)
 
-	./boot/limine/limine bios-install $(ISO) || ./boot/limine/limine-install $(ISO)
+	./boot/limine/limine bios-install $(ISO)
 
 run: iso
 	qemu-system-x86_64 \
