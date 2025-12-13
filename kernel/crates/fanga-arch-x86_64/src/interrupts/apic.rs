@@ -99,31 +99,14 @@ impl Apic {
 
         serial_println!("[APIC] Base address: 0x{:x}", base_addr_only);
         serial_println!("[APIC] Enabled in MSR: {}", apic_enabled);
+        serial_println!("[APIC] Note: MMIO access disabled until memory mapping is implemented");
 
-        unsafe {
-            // Enable APIC by setting bit 8 in Spurious Interrupt Vector Register
-            // Also set the spurious vector to 255
-            let spurious = self.read_register(APIC_SPURIOUS);
-            self.write_register(APIC_SPURIOUS, spurious | 0x100 | 0xFF);
+        // TODO: Map APIC memory region before accessing registers
+        // For now, we just detect APIC but don't enable it
+        // This requires identity mapping or page table setup for 0xFEE00000
 
-            // Set Task Priority Register to 0 (accept all interrupts)
-            self.write_register(APIC_TPR, 0);
-
-            // Mask all LVT entries initially
-            self.write_register(APIC_LVT_TIMER, 0x10000); // Masked
-            self.write_register(APIC_LVT_LINT0, 0x10000); // Masked
-            self.write_register(APIC_LVT_LINT1, 0x10000); // Masked
-            self.write_register(APIC_LVT_ERROR, 0x10000); // Masked
-
-            // Read APIC ID and version
-            let apic_id = self.read_register(APIC_ID) >> 24;
-            let apic_version = self.read_register(APIC_VERSION) & 0xFF;
-
-            serial_println!("[APIC] ID: {}", apic_id);
-            serial_println!("[APIC] Version: 0x{:x}", apic_version);
-        }
-
-        self.enabled = true;
+        // Mark as not enabled since we can't safely access MMIO yet
+        self.enabled = false;
         Ok(())
     }
 
