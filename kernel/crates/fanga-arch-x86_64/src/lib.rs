@@ -1,12 +1,14 @@
 #![no_std]
 #![feature(abi_x86_interrupt)]
 
+pub mod gdt;
 pub mod interrupts;
 pub mod port;
 pub mod serial;
 
 pub fn init() {
     serial::init();
+    gdt::init();
     interrupts::idt::init();
 
     // Keep interrupts OFF for a moment? You can enable now if you want IRQs.
