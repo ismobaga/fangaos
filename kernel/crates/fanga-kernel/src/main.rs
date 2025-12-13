@@ -332,8 +332,6 @@ pub extern "C" fn _start() -> ! {
             (total_mem - used_mem) / (1024 * 1024)
         );
         
-        arch::serial_println!("[Fanga] PMM test completed ✅");
-        
         // Test VMM (Virtual Memory Manager)
         arch::serial_println!("[Fanga] Testing VMM...");
         

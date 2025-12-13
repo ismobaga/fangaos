@@ -205,9 +205,7 @@ impl HeapAllocator {
             }
 
             prev = current;
-            unsafe {
-                current = (*block_ptr.as_ptr()).next;
-            }
+            current = (*block_ptr.as_ptr()).next;
         }
 
         // Insert at end

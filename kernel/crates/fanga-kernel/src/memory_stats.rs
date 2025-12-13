@@ -157,13 +157,21 @@ impl fmt::Display for MemoryStats {
             f,
             "    Used:  {} KiB ({:.1}%)",
             self.used_physical() / 1024,
-            (self.used_physical() as f32 / self.total_physical() as f32) * 100.0
+            if self.total_physical() > 0 {
+                (self.used_physical() as f32 / self.total_physical() as f32) * 100.0
+            } else {
+                0.0
+            }
         )?;
         writeln!(
             f,
             "    Free:  {} KiB ({:.1}%)",
             self.free_physical() / 1024,
-            (self.free_physical() as f32 / self.total_physical() as f32) * 100.0
+            if self.total_physical() > 0 {
+                (self.free_physical() as f32 / self.total_physical() as f32) * 100.0
+            } else {
+                0.0
+            }
         )?;
         writeln!(f, "  Heap Memory:")?;
         writeln!(
