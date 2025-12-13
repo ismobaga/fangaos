@@ -1,7 +1,7 @@
 KERNEL_ELF=kernel/target/x86_64-fanga-kernel/release/fanga-kernel
 ISO=build/fangaos.iso
 
-.PHONY: iso run kernel clean
+.PHONY: iso run kernel clean limine
 
 kernel:
 	cd kernel && cargo build \
@@ -9,7 +9,17 @@ kernel:
   -Zbuild-std-features=compiler-builtins-mem \
   -p fanga-kernel --release
 
-iso: kernel
+limine:
+	@if [ ! -f boot/limine/limine-bios.sys ]; then \
+		echo "Initializing Limine submodule..."; \
+		git submodule update --init --recursive boot/limine; \
+	fi
+	@if [ ! -f boot/limine/limine ]; then \
+		echo "Building Limine utility..."; \
+		$(MAKE) -C boot/limine; \
+	fi
+
+iso: kernel limine
 	mkdir -p build boot/iso_root/boot boot/iso_root/EFI/BOOT
 	cp $(KERNEL_ELF) boot/iso_root/boot/kernel.elf
 
