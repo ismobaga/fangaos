@@ -1,5 +1,5 @@
-use core::fmt::{self, Write};
 use super::port::{inb, outb};
+use core::fmt::{self, Write};
 
 const COM1: u16 = 0x3F8;
 
@@ -31,7 +31,9 @@ struct Serial;
 impl Write for Serial {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for b in s.bytes() {
-            if b == b'\n' { write_byte(b'\r'); }
+            if b == b'\n' {
+                write_byte(b'\r');
+            }
             write_byte(b);
         }
         Ok(())
@@ -41,4 +43,3 @@ impl Write for Serial {
 pub fn _print(args: fmt::Arguments) {
     let _ = Serial.write_fmt(args);
 }
-

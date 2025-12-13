@@ -3,14 +3,14 @@
 pub mod port;
 pub mod serial;
 
-pub fn init(){
+pub fn init() {
     serial::init();
 }
 
 #[macro_export]
 macro_rules! serial_print {
     ($($arg:tt)*) => {{
-        $crate::serial::_print(core::format_args!($($arg)*));    
+        $crate::serial::_print(core::format_args!($($arg)*));
     }};
 }
 
