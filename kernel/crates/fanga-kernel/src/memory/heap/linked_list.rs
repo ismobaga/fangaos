@@ -2,7 +2,11 @@
 //!
 //! This module implements a simple heap allocator for dynamic memory allocation.
 
+#[cfg(not(test))]
 use core::alloc::{GlobalAlloc, Layout};
+#[cfg(test)]
+use std::alloc::{GlobalAlloc, Layout};
+
 use core::ptr::{self, NonNull};
 use core::mem;
 use crate::memory::addr::PAGE_SIZE;

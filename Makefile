@@ -194,6 +194,7 @@ limine/limine:
 .PHONY: kernel
 kernel:
 	cd kernel && cargo build --release \
+		--features kernel-bin \
 		-Z build-std=core,compiler_builtins,alloc \
 		-Z build-std-features=compiler-builtins-mem \
 		--target x86_64-fanga-kernel.json

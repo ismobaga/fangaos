@@ -160,3 +160,107 @@ pub const fn align_up(val: u64, align: u64) -> u64 {
 pub const fn align_down(val: u64, align: u64) -> u64 {
     val & !(align - 1)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_phys_addr_creation() {
+        let addr = PhysAddr::new(0x1000);
+        assert_eq!(addr.as_u64(), 0x1000);
+    }
+
+    #[test]
+    fn test_phys_addr_alignment() {
+        let addr = PhysAddr::new(0x1234);
+        assert!(!addr.is_aligned(PAGE_SIZE as u64));
+        
+        let aligned_up = addr.align_up(PAGE_SIZE as u64);
+        assert!(aligned_up.is_aligned(PAGE_SIZE as u64));
+        assert_eq!(aligned_up.as_u64(), 0x2000);
+        
+        let aligned_down = addr.align_down(PAGE_SIZE as u64);
+        assert!(aligned_down.is_aligned(PAGE_SIZE as u64));
+        assert_eq!(aligned_down.as_u64(), 0x1000);
+    }
+
+    #[test]
+    fn test_virt_addr_creation() {
+        let addr = VirtAddr::new(0x1000);
+        assert_eq!(addr.as_u64(), 0x1000);
+    }
+
+    #[test]
+    fn test_virt_addr_canonical() {
+        // Lower half addresses (canonical)
+        let addr1 = VirtAddr::new(0x0000_7FFF_FFFF_FFFF);
+        assert!(addr1.is_canonical());
+        
+        // Higher half addresses (canonical)
+        let addr2 = VirtAddr::new(0xFFFF_8000_0000_0000);
+        assert!(addr2.is_canonical());
+        
+        // Non-canonical address
+        let addr3 = VirtAddr::new(0x0000_8000_0000_0000);
+        assert!(!addr3.is_canonical());
+    }
+
+    #[test]
+    fn test_virt_addr_truncate() {
+        // Test sign extension from bit 47
+        let addr1 = VirtAddr::new_truncate(0x0000_0000_0000_1000);
+        assert_eq!(addr1.as_u64(), 0x0000_0000_0000_1000);
+        
+        let addr2 = VirtAddr::new_truncate(0x0000_8000_0000_0000);
+        assert_eq!(addr2.as_u64(), 0xFFFF_8000_0000_0000);
+    }
+
+    #[test]
+    fn test_virt_addr_alignment() {
+        let addr = VirtAddr::new(0x5678);
+        assert!(!addr.is_aligned(PAGE_SIZE as u64));
+        
+        let aligned_up = addr.align_up(PAGE_SIZE as u64);
+        assert!(aligned_up.is_aligned(PAGE_SIZE as u64));
+        assert_eq!(aligned_up.as_u64(), 0x6000);
+        
+        let aligned_down = addr.align_down(PAGE_SIZE as u64);
+        assert!(aligned_down.is_aligned(PAGE_SIZE as u64));
+        assert_eq!(aligned_down.as_u64(), 0x5000);
+    }
+
+    #[test]
+    fn test_align_up() {
+        assert_eq!(align_up(0, 4096), 0);
+        assert_eq!(align_up(1, 4096), 4096);
+        assert_eq!(align_up(4095, 4096), 4096);
+        assert_eq!(align_up(4096, 4096), 4096);
+        assert_eq!(align_up(4097, 4096), 8192);
+    }
+
+    #[test]
+    fn test_align_down() {
+        assert_eq!(align_down(0, 4096), 0);
+        assert_eq!(align_down(1, 4096), 0);
+        assert_eq!(align_down(4095, 4096), 0);
+        assert_eq!(align_down(4096, 4096), 4096);
+        assert_eq!(align_down(4097, 4096), 4096);
+        assert_eq!(align_down(8192, 4096), 8192);
+    }
+
+    #[test]
+    fn test_addr_conversions() {
+        let phys: PhysAddr = 0x1000u64.into();
+        assert_eq!(phys.as_u64(), 0x1000);
+        
+        let val: u64 = phys.into();
+        assert_eq!(val, 0x1000);
+        
+        let virt: VirtAddr = 0x2000u64.into();
+        assert_eq!(virt.as_u64(), 0x2000);
+        
+        let val: u64 = virt.into();
+        assert_eq!(val, 0x2000);
+    }
+}
