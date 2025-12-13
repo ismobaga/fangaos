@@ -2,6 +2,44 @@
 //!
 //! This module manages physical memory using a bitmap allocator.
 //! Each bit in the bitmap represents one page (4 KiB) of physical memory.
+//!
+//! # Design
+//!
+//! The PMM uses a simple bitmap-based allocation strategy where:
+//! - Each bit represents one physical page (4 KiB)
+//! - A bit value of 0 means the page is free
+//! - A bit value of 1 means the page is used/allocated
+//! - The bitmap itself is stored in physical memory mapped via HHDM
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! // Create and initialize the PMM
+//! static mut PMM: PhysicalMemoryManager = PhysicalMemoryManager::new();
+//!
+//! unsafe {
+//!     PMM.init(memmap_response, hhdm_offset);
+//! }
+//!
+//! // Allocate a physical page
+//! if let Some(phys_addr) = unsafe { PMM.alloc_page() } {
+//!     // Use the page at phys_addr
+//!     // ...
+//!     // Free it when done
+//!     unsafe { PMM.free_page(phys_addr); }
+//! }
+//! ```
+//!
+//! # Safety
+//!
+//! The PMM uses raw pointers and unsafe operations to manage memory.
+//! It must be used with care in a single-threaded context during kernel
+//! initialization. For multi-threaded use, proper synchronization is required.
+//!
+//! **Important**: The current implementation is NOT thread-safe. The bitmap
+//! operations are not atomic and will race if called from multiple threads
+//! concurrently. A locking mechanism (Mutex/SpinLock) must be added before
+//! using the PMM in a multi-threaded environment.
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 
@@ -26,9 +64,12 @@ pub struct PhysicalMemoryManager {
     highest_addr: u64,
 }
 
-// SAFETY: The PMM is designed to be used from a single-threaded context initially,
-// but we use atomics for the free_pages counter to allow safe concurrent reads.
-// The bitmap operations themselves should be protected by locks in a multi-threaded context.
+// SAFETY: The PMM is designed to be used from a single-threaded context during
+// kernel initialization. The Send and Sync implementations allow the PMM to be
+// used as a static, but proper synchronization (locks/mutexes) MUST be added
+// before using the PMM in a multi-threaded environment. The bitmap operations
+// are not atomic and can race if called concurrently.
+// TODO: Add locking mechanism (Mutex/SpinLock) for multi-threaded safety.
 unsafe impl Send for PhysicalMemoryManager {}
 unsafe impl Sync for PhysicalMemoryManager {}
 
@@ -176,6 +217,10 @@ impl PhysicalMemoryManager {
     /// Allocates a single physical page
     ///
     /// Returns the physical address of the allocated page, or None if no pages are available
+    ///
+    /// # Safety
+    /// This method is not thread-safe. It must be called from a single-threaded context
+    /// or protected by a lock in multi-threaded environments.
     pub fn alloc_page(&mut self) -> Option<u64> {
         // Check if we have free pages
         let free = self.free_pages.load(Ordering::SeqCst);
@@ -220,6 +265,11 @@ impl PhysicalMemoryManager {
     ///
     /// # Arguments
     /// * `addr` - Physical address of the page to free (must be page-aligned)
+    ///
+    /// # Safety
+    /// This method is not thread-safe. It must be called from a single-threaded context
+    /// or protected by a lock in multi-threaded environments.
+    /// Freeing an already-free page is safely ignored (no-op).
     pub fn free_page(&mut self, addr: u64) {
         // Ensure page-aligned
         if addr % PAGE_SIZE as u64 != 0 {
