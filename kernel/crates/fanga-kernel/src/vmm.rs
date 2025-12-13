@@ -238,6 +238,13 @@ impl PageTableMapper {
     }
 
     /// Converts a physical address to a virtual address using HHDM
+    ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - The physical address is valid
+    /// - The HHDM offset is correctly set
+    /// - The resulting virtual address is within valid kernel space
+    #[inline]
     fn phys_to_virt(&self, phys: u64) -> u64 {
         self.hhdm_offset + phys
     }
@@ -250,6 +257,13 @@ impl PageTableMapper {
     /// Gets or creates a page table entry
     ///
     /// Returns a mutable pointer to the next level page table
+    ///
+    /// # Safety
+    /// The caller must ensure that:
+    /// - The entry pointer is valid
+    /// - No other mutable references to the same page table exist
+    /// - The PMM is properly initialized and can allocate pages
+    /// - The physical addresses returned by PMM are valid
     unsafe fn get_or_create_table(
         &mut self,
         entry: &mut PageTableEntry,
@@ -258,6 +272,10 @@ impl PageTableMapper {
         if !entry.is_present() {
             // Allocate a new page table
             let phys = pmm.alloc_page()?;
+            
+            // Convert physical to virtual address using HHDM
+            // SAFETY: The physical address is valid (just allocated by PMM)
+            // and the HHDM offset ensures it maps to a valid kernel virtual address
             let virt = self.phys_to_virt(phys) as *mut PageTable;
             (*virt).clear();
 
@@ -271,6 +289,8 @@ impl PageTableMapper {
         }
 
         let table_phys = entry.addr();
+        // SAFETY: The physical address comes from a present page table entry
+        // which means it was previously validated when the entry was created
         let table_virt = self.phys_to_virt(table_phys) as *mut PageTable;
         Some(table_virt)
     }
@@ -286,8 +306,18 @@ impl PageTableMapper {
     /// # Safety
     /// The caller must ensure that:
     /// - Both addresses are page-aligned
-    /// - The physical address is valid
+    /// - The physical address is valid and accessible
     /// - The PMM is properly initialized
+    /// - The mapping won't conflict with existing kernel mappings
+    /// - No other references to the page tables exist during this operation
+    ///
+    /// # Aliasing and Borrowing
+    /// This function uses raw pointers to traverse the page table hierarchy.
+    /// While this creates temporary aliasing, it's safe because:
+    /// 1. We only hold each pointer briefly during traversal
+    /// 2. Each pointer points to a different page table level
+    /// 3. The page tables are not accessed concurrently
+    /// 4. The function is marked unsafe and documented
     pub unsafe fn map(
         &mut self,
         virt_addr: u64,
@@ -307,6 +337,9 @@ impl PageTableMapper {
         let pt_idx = pt_index(virt_addr);
 
         // Walk the page table hierarchy, creating tables as needed
+        // SAFETY: We create raw pointers to avoid overlapping mutable borrows,
+        // but we ensure that each pointer is only dereferenced when no other
+        // mutable references to the same memory exist.
         let pml4 = self.pml4_mut();
         let pml4_entry_ptr = pml4.entry_mut(pml4_idx) as *mut PageTableEntry;
         
@@ -340,8 +373,13 @@ impl PageTableMapper {
 
     /// Unmaps a virtual address
     ///
+    /// Returns the physical address that was unmapped
+    ///
     /// # Safety
-    /// The caller must ensure that unmapping this address is safe
+    /// The caller must ensure that:
+    /// - Unmapping this address is safe and won't break kernel functionality
+    /// - No references to the unmapped memory exist
+    /// - The virtual address is page-aligned
     pub unsafe fn unmap(&mut self, virt_addr: u64) -> Result<u64, &'static str> {
         // Ensure address is page-aligned
         if virt_addr % PAGE_SIZE as u64 != 0 {
@@ -355,6 +393,8 @@ impl PageTableMapper {
         let pt_idx = pt_index(virt_addr);
 
         // Walk the page table hierarchy
+        // SAFETY: We convert physical addresses to virtual using HHDM,
+        // which is safe because the page tables are in the higher half direct map
         let pml4 = self.pml4_mut();
         if !pml4.entry(pml4_idx).is_present() {
             return Err("PML4 entry not present");
