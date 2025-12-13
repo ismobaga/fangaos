@@ -11,6 +11,8 @@ use limine::BaseRevision;
 
 use fanga_arch_x86_64 as arch;
 
+mod pmm;
+
 /* -------------------------------------------------------------------------- */
 /*                          LIMINE REQUIRED MARKERS                            */
 /* -------------------------------------------------------------------------- */
@@ -116,7 +118,7 @@ pub extern "C" fn _start() -> ! {
 
         for entry in mm.entries() {
             let e = *entry;
-            let base = entry.base;
+            let _base = entry.base;
             let len = entry.length;
             total += len;
 
@@ -136,6 +138,55 @@ pub extern "C" fn _start() -> ! {
         arch::serial_println!("[Fanga] mem usable: {} KiB", usable / 1024);
     } else {
         arch::serial_println!("[Fanga] No memory map response");
+    }
+
+    // Initialize PMM (Physical Memory Manager)
+    static mut PMM: pmm::PhysicalMemoryManager = pmm::PhysicalMemoryManager::new();
+    
+    if let (Some(mm), Some(hhdm)) = (MEMMAP_REQ.get_response(), HHDM_REQ.get_response()) {
+        arch::serial_println!("[Fanga] Initializing PMM...");
+        unsafe {
+            PMM.init(mm, hhdm.offset());
+        }
+        
+        arch::serial_println!(
+            "[Fanga] PMM initialized: {} pages total, {} pages free, {} pages used",
+            unsafe { PMM.total_pages() },
+            unsafe { PMM.free_pages() },
+            unsafe { PMM.used_pages() }
+        );
+
+        // Test PMM allocation
+        arch::serial_println!("[Fanga] Testing PMM allocation...");
+        unsafe {
+            if let Some(page1) = PMM.alloc_page() {
+                arch::serial_println!("[Fanga] Allocated page at: 0x{:x}", page1);
+                
+                if let Some(page2) = PMM.alloc_page() {
+                    arch::serial_println!("[Fanga] Allocated page at: 0x{:x}", page2);
+                    
+                    // Free the pages
+                    PMM.free_page(page1);
+                    arch::serial_println!("[Fanga] Freed page at: 0x{:x}", page1);
+                    
+                    PMM.free_page(page2);
+                    arch::serial_println!("[Fanga] Freed page at: 0x{:x}", page2);
+                    
+                    arch::serial_println!(
+                        "[Fanga] After test: {} pages free",
+                        PMM.free_pages()
+                    );
+                } else {
+                    arch::serial_println!("[Fanga] Failed to allocate second page");
+                }
+            } else {
+                arch::serial_println!("[Fanga] Failed to allocate first page");
+            }
+        }
+        
+        arch::serial_println!("[Fanga] PMM test completed ✅");
+    } else {
+        arch::serial_println!("[Fanga] Cannot initialize PMM: missing memory map or HHDM");
     }
 
     // Framebuffer test: fill screen with a solid color
