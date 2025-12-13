@@ -3,8 +3,8 @@
 
 use core::panic::PanicInfo;
 
+use limine::request::{RequestsEndMarker, RequestsStartMarker};
 use limine::BaseRevision;
-use limine::request::{RequestsStartMarker, RequestsEndMarker};
 
 use fanga_arch_x86_64 as arch;
 
@@ -57,4 +57,3 @@ fn panic(info: &PanicInfo) -> ! {
         core::hint::spin_loop();
     }
 }
-
