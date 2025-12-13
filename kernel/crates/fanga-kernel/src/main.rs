@@ -13,18 +13,14 @@ use limine::BaseRevision;
 
 use fanga_arch_x86_64 as arch;
 
-mod pmm;
-mod vmm;
-mod heap;
-mod memory_regions;
-mod memory_stats;
+mod memory;
 
 /* -------------------------------------------------------------------------- */
 /*                             GLOBAL ALLOCATOR                                */
 /* -------------------------------------------------------------------------- */
 
 #[global_allocator]
-static GLOBAL_ALLOCATOR: heap::GlobalHeapAllocator = heap::GlobalHeapAllocator::new();
+static GLOBAL_ALLOCATOR: memory::GlobalHeapAllocator = memory::GlobalHeapAllocator::new();
 
 /* -------------------------------------------------------------------------- */
 /*                          LIMINE REQUIRED MARKERS                            */
@@ -154,7 +150,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     // Initialize PMM (Physical Memory Manager)
-    static mut PMM: pmm::PhysicalMemoryManager = pmm::PhysicalMemoryManager::new();
+    static mut PMM: memory::PhysicalMemoryManager = memory::PhysicalMemoryManager::new();
     
     if let (Some(mm), Some(hhdm)) = (MEMMAP_REQ.get_response(), HHDM_REQ.get_response()) {
         arch::serial_println!("[Fanga] Initializing PMM...");
@@ -204,7 +200,7 @@ pub extern "C" fn _start() -> ! {
         
         // Allocate pages for the heap (1 MiB = 256 pages)
         const HEAP_SIZE: usize = 1024 * 1024; // 1 MiB
-        const HEAP_PAGES: usize = HEAP_SIZE / pmm::PAGE_SIZE;
+        const HEAP_PAGES: usize = HEAP_SIZE / memory::PAGE_SIZE;
         
         unsafe {
             // Allocate contiguous physical pages for the heap
@@ -219,7 +215,7 @@ pub extern "C" fn _start() -> ! {
                 
                 // For simplicity, we'll use the HHDM mapping for the heap
                 let heap_start_virt = hhdm.offset() + heap_start_phys;
-                let initial_heap_size = pmm::PAGE_SIZE;
+                let initial_heap_size = memory::PAGE_SIZE;
                 
                 GLOBAL_ALLOCATOR.init(heap_start_virt as usize, initial_heap_size);
                 
@@ -230,7 +226,7 @@ pub extern "C" fn _start() -> ! {
                 );
                 
                 // Update memory statistics
-                memory_stats::stats().set_total_heap(initial_heap_size);
+                memory::stats::stats().set_total_heap(initial_heap_size);
                 
                 // Test heap allocation
                 arch::serial_println!("[Fanga] Testing heap allocation...");
@@ -256,31 +252,31 @@ pub extern "C" fn _start() -> ! {
         // Initialize memory regions
         arch::serial_println!("[Fanga] Initializing memory regions...");
         
-        static mut MEMORY_REGIONS: memory_regions::MemoryRegionManager = 
-            memory_regions::MemoryRegionManager::new();
+        static mut MEMORY_REGIONS: memory::regions::MemoryRegionManager = 
+            memory::regions::MemoryRegionManager::new();
         
         unsafe {
             // Add regions based on memory map
             for entry in mm.entries() {
                 let region_type = match entry.entry_type {
                     limine::memory_map::EntryType::USABLE => {
-                        memory_regions::MemoryRegionType::Available
+                        memory::regions::MemoryRegionType::Available
                     }
                     limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE |
                     limine::memory_map::EntryType::ACPI_RECLAIMABLE |
                     limine::memory_map::EntryType::ACPI_NVS |
                     limine::memory_map::EntryType::BAD_MEMORY |
                     limine::memory_map::EntryType::RESERVED => {
-                        memory_regions::MemoryRegionType::Reserved
+                        memory::regions::MemoryRegionType::Reserved
                     }
                     limine::memory_map::EntryType::FRAMEBUFFER |
                     limine::memory_map::EntryType::KERNEL_AND_MODULES => {
-                        memory_regions::MemoryRegionType::KernelData
+                        memory::regions::MemoryRegionType::KernelData
                     }
-                    _ => memory_regions::MemoryRegionType::Reserved,
+                    _ => memory::regions::MemoryRegionType::Reserved,
                 };
                 
-                let region = memory_regions::MemoryRegion::new(
+                let region = memory::regions::MemoryRegion::new(
                     entry.base,
                     entry.length,
                     region_type,
@@ -294,16 +290,16 @@ pub extern "C" fn _start() -> ! {
             
             arch::serial_println!("[Fanga] Memory regions initialized");
             arch::serial_println!("[Fanga] Total regions: {}", MEMORY_REGIONS.count_by_type(
-                memory_regions::MemoryRegionType::Available
+                memory::regions::MemoryRegionType::Available
             ) + MEMORY_REGIONS.count_by_type(
-                memory_regions::MemoryRegionType::Reserved
+                memory::regions::MemoryRegionType::Reserved
             ));
             
             // Print some region statistics
             for region_type in [
-                memory_regions::MemoryRegionType::Available,
-                memory_regions::MemoryRegionType::Reserved,
-                memory_regions::MemoryRegionType::KernelData,
+                memory::regions::MemoryRegionType::Available,
+                memory::regions::MemoryRegionType::Reserved,
+                memory::regions::MemoryRegionType::KernelData,
             ] {
                 let count = MEMORY_REGIONS.count_by_type(region_type);
                 let size = MEMORY_REGIONS.total_size_by_type(region_type);
@@ -319,10 +315,10 @@ pub extern "C" fn _start() -> ! {
         }
         
         // Update memory statistics
-        let total_mem = unsafe { PMM.total_pages() * pmm::PAGE_SIZE };
-        let used_mem = unsafe { PMM.used_pages() * pmm::PAGE_SIZE };
-        memory_stats::stats().set_total_physical(total_mem);
-        memory_stats::stats().set_used_physical(used_mem);
+        let total_mem = unsafe { PMM.total_pages() * memory::PAGE_SIZE };
+        let used_mem = unsafe { PMM.used_pages() * memory::PAGE_SIZE };
+        memory::stats::stats().set_total_physical(total_mem);
+        memory::stats::stats().set_used_physical(used_mem);
         
         // Print memory statistics
         arch::serial_println!("[Fanga] Memory Statistics:");
@@ -337,7 +333,7 @@ pub extern "C" fn _start() -> ! {
         
         unsafe {
             // Create a new page table
-            if let Some(mut mapper) = vmm::PageTableMapper::new(&mut PMM, hhdm.offset()) {
+            if let Some(mut mapper) = memory::PageTableMapper::new(&mut PMM, hhdm.offset()) {
                 arch::serial_println!("[Fanga] Created new page table at: 0x{:x}", mapper.pml4_addr());
                 
                 // Test mapping: map virtual address 0x1000_0000 to a physical page
@@ -345,8 +341,8 @@ pub extern "C" fn _start() -> ! {
                     arch::serial_println!("[Fanga] Allocated test page at: 0x{:x}", test_phys);
                     
                     let test_virt = 0x1000_0000u64;
-                    let flags = vmm::PageTableFlags::PRESENT
-                        .with(vmm::PageTableFlags::WRITABLE);
+                    let flags = memory::PageTableFlags::PRESENT
+                        .with(memory::PageTableFlags::WRITABLE);
                     
                     match mapper.map(test_virt, test_phys, flags, &mut PMM) {
                         Ok(()) => {
@@ -404,7 +400,7 @@ pub extern "C" fn _start() -> ! {
                 arch::serial_println!("[Fanga] VMM test completed ✅");
                 
                 // Get current page table (CR3)
-                let current_cr3 = vmm::PageTableMapper::current_cr3();
+                let current_cr3 = memory::PageTableMapper::current_cr3();
                 arch::serial_println!("[Fanga] Current CR3 (page table): 0x{:x}", current_cr3);
             } else {
                 arch::serial_println!("[Fanga] Failed to create page table mapper");

@@ -1,25 +1,11 @@
-//! Heap Allocator
+//! Linked-List Heap Allocator
 //!
 //! This module implements a simple heap allocator for dynamic memory allocation.
-//! It uses a linked-list based approach where each allocated block contains
-//! metadata about its size and next free block.
-//!
-//! # Design
-//!
-//! The heap allocator uses a first-fit strategy:
-//! - Maintains a linked list of free blocks
-//! - Each block has a header with size and next pointer
-//! - Allocates from the first block that fits
-//! - Coalesces adjacent free blocks on deallocation
-//!
-//! # Safety
-//!
-//! This allocator is NOT thread-safe. It must be protected by a lock
-//! when used in a multi-threaded environment.
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::{self, NonNull};
 use core::mem;
+use crate::memory::addr::PAGE_SIZE;
 
 /// Minimum allocation size (must be at least size of FreeBlock)
 const MIN_BLOCK_SIZE: usize = mem::size_of::<FreeBlock>();
@@ -261,14 +247,14 @@ unsafe impl GlobalAlloc for GlobalHeapAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let ptr = self.inner.lock().alloc(layout);
         if !ptr.is_null() && layout.size() > 0 {
-            crate::memory_stats::stats().record_heap_alloc(layout.size());
+            crate::memory::stats::stats().record_heap_alloc(layout.size());
         }
         ptr
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         if layout.size() > 0 {
-            crate::memory_stats::stats().record_heap_dealloc(layout.size());
+            crate::memory::stats::stats().record_heap_dealloc(layout.size());
         }
         self.inner.lock().dealloc(ptr, layout)
     }

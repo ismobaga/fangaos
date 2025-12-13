@@ -1,64 +1,14 @@
-//! Physical Memory Manager (PMM)
+//! Bitmap-based Physical Memory Allocator
 //!
-//! This module manages physical memory using a bitmap allocator.
+//! This module implements a bitmap allocator for physical memory pages.
 //! Each bit in the bitmap represents one page (4 KiB) of physical memory.
-//!
-//! # Design
-//!
-//! The PMM uses a simple bitmap-based allocation strategy where:
-//! - Each bit represents one physical page (4 KiB)
-//! - A bit value of 0 means the page is free
-//! - A bit value of 1 means the page is used/allocated
-//! - The bitmap itself is stored in physical memory mapped via HHDM
-//!
-//! # Usage
-//!
-//! ```rust,no_run
-//! // Create and initialize the PMM
-//! static mut PMM: PhysicalMemoryManager = PhysicalMemoryManager::new();
-//!
-//! unsafe {
-//!     PMM.init(memmap_response, hhdm_offset);
-//! }
-//!
-//! // Allocate a physical page
-//! if let Some(phys_addr) = unsafe { PMM.alloc_page() } {
-//!     // Use the page at phys_addr
-//!     // ...
-//!     // Free it when done
-//!     unsafe { PMM.free_page(phys_addr); }
-//! }
-//! ```
-//!
-//! # Safety
-//!
-//! The PMM uses raw pointers and unsafe operations to manage memory.
-//! It must be used with care in a single-threaded context during kernel
-//! initialization. For multi-threaded use, proper synchronization is required.
-//!
-//! **Important**: The current implementation is NOT thread-safe. The bitmap
-//! operations are not atomic and will race if called from multiple threads
-//! concurrently. A locking mechanism (Mutex/SpinLock) must be added before
-//! using the PMM in a multi-threaded environment.
 
 use core::sync::atomic::{AtomicUsize, Ordering};
-
-/// Page size constant (4 KiB)
-pub const PAGE_SIZE: usize = 4096;
+use crate::memory::addr::{PAGE_SIZE, align_up, align_down};
 
 /// Bitmap entry type - each u64 covers 64 pages
 type BitmapEntry = u64;
 const BITS_PER_ENTRY: usize = 64;
-
-#[inline(always)]
-const fn align_up(x: u64, a: u64) -> u64 {
-    (x + (a - 1)) & !(a - 1)
-}
-
-#[inline(always)]
-const fn align_down(x: u64, a: u64) -> u64 {
-    x & !(a - 1)
-}
 
 /// Physical Memory Manager using bitmap allocation
 pub struct PhysicalMemoryManager {
