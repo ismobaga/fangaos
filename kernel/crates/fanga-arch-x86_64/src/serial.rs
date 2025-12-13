@@ -1,5 +1,7 @@
 use super::port::{inb, outb};
 use core::fmt::{self, Write};
+use core::sync::atomic::{AtomicBool, Ordering};
+static LOCK: AtomicBool = AtomicBool::new(false);
 
 const COM1: u16 = 0x3F8;
 
@@ -41,5 +43,12 @@ impl Write for Serial {
 }
 
 pub fn _print(args: fmt::Arguments) {
+    while LOCK
+        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+        .is_err()
+    {
+        core::hint::spin_loop();
+    }
     let _ = Serial.write_fmt(args);
+    LOCK.store(false, Ordering::Release);
 }

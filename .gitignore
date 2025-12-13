@@ -20,9 +20,12 @@ iso/
 # Limine runtime artifacts
 # (keep the binaries, ignore temp junk)
 # =========================
-boot/limine/limine-install.log
-boot/limine/*.o
-boot/limine/*.a
+limine/limine-install.log
+limine/*.o
+limine/*.a
+
+ovmf/edk2-ovmf.tar.gz
+ovmf/edk2-ovmf/
 
 # =========================
 # QEMU / Debug
