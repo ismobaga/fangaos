@@ -1,0 +1,48 @@
+# =========================
+# Rust / Cargo
+# =========================
+**/target/
+**/Cargo.lock
+*.rlib
+*.rmeta
+
+# =========================
+# OS build artifacts
+# =========================
+build/
+images/
+sysroot/
+iso/
+*.iso
+*.img
+
+# =========================
+# Limine runtime artifacts
+# (keep the binaries, ignore temp junk)
+# =========================
+boot/limine/limine-install.log
+boot/limine/*.o
+boot/limine/*.a
+
+# =========================
+# QEMU / Debug
+# =========================
+qemu.log
+*.log
+*.gdb
+
+# =========================
+# Editor / OS junk
+# =========================
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+*.tmp
+
+# =========================
+# Backup / generated
+# =========================
+*~
+

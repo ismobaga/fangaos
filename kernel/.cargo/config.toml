@@ -1,0 +1,11 @@
+[build]
+target = "x86_64-fanga-kernel.json"
+
+[target.'cfg(target_os = "none")']
+rustflags = [
+  "-C", "link-arg=-Tlinker.ld",
+  "-C", "relocation-model=static",
+  "-C", "code-model=kernel",
+  "-C", "force-frame-pointers=yes",
+
+]
