@@ -7,7 +7,7 @@ set -e
 TIMEOUT=30
 KARCH="${KARCH:-x86_64}"
 IMAGE_NAME="fangaos-${KARCH}"
-SUCCESS_MARKER="Framebuffer console initialized"
+SUCCESS_MARKER="\[Fanga\] Framebuffer console initialized"
 SERIAL_LOG="qemu-serial.log"
 QEMU_LOG="qemu-output.log"
 
