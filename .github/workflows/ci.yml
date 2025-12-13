@@ -1,0 +1,171 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: Build Kernel
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [x86_64]  # Add more architectures as they become functional
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rust-src, rustfmt, clippy
+    
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential xorriso mtools
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: kernel/target
+        key: ${{ runner.os }}-target-${{ matrix.arch }}-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build kernel
+      run: |
+        cd kernel
+        cargo build --release \
+          -Z build-std=core,compiler_builtins,alloc \
+          -Z build-std-features=compiler-builtins-mem \
+          --target ${{ matrix.arch }}-fanga-kernel.json
+    
+    - name: Check kernel binary
+      run: |
+        ls -lh kernel/target/${{ matrix.arch }}-fanga-kernel/release/fanga-kernel
+        file kernel/target/${{ matrix.arch }}-fanga-kernel/release/fanga-kernel
+
+  format:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rustfmt
+    
+    - name: Check formatting
+      run: |
+        cd kernel
+        cargo fmt --all -- --check
+
+  clippy:
+    name: Lint with Clippy
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rust-src, clippy
+    
+    - name: Run Clippy
+      run: |
+        cd kernel
+        cargo clippy --target x86_64-fanga-kernel.json \
+          -Z build-std=core,compiler_builtins,alloc \
+          -- -D warnings
+
+  # Uncomment when tests are added
+  # test:
+  #   name: Run Tests
+  #   runs-on: ubuntu-latest
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #   
+  #   - name: Install Rust toolchain
+  #     uses: dtolnay/rust-toolchain@nightly
+  #     with:
+  #       components: rust-src
+  #   
+  #   - name: Run tests
+  #     run: |
+  #       cd kernel
+  #       cargo test --lib
+
+  # Uncomment when QEMU tests are set up
+  # qemu-test:
+  #   name: QEMU Integration Test
+  #   runs-on: ubuntu-latest
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #   
+  #   - name: Install Rust toolchain
+  #     uses: dtolnay/rust-toolchain@nightly
+  #     with:
+  #       components: rust-src
+  #   
+  #   - name: Install dependencies
+  #     run: |
+  #       sudo apt-get update
+  #       sudo apt-get install -y qemu-system-x86 xorriso mtools
+  #   
+  #   - name: Build ISO
+  #     run: make
+  #   
+  #   - name: Run in QEMU
+  #     run: |
+  #       timeout 30s make run QEMUFLAGS="-nographic -serial mon:stdio" || true
+  #       # Add validation of expected output here
+
+  docs:
+    name: Check Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rust-src
+    
+    - name: Build documentation
+      run: |
+        cd kernel
+        cargo doc --no-deps --target x86_64-fanga-kernel.json \
+          -Z build-std=core,compiler_builtins,alloc
+    
+    - name: Check for broken links
+      run: |
+        # Check markdown files for broken internal links
+        find . -name "*.md" -exec grep -l "](docs/" {} \; || true
