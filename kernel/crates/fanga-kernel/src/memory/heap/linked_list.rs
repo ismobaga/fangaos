@@ -2,6 +2,8 @@
 //!
 //! This module implements a simple heap allocator for dynamic memory allocation.
 
+// Use std::alloc in tests to enable testing in a hosted environment
+// with the standard library. In kernel mode (no_std), use core::alloc.
 #[cfg(not(test))]
 use core::alloc::{GlobalAlloc, Layout};
 #[cfg(test)]

@@ -119,10 +119,14 @@ fn test_address_arithmetic_patterns() {
     let base = PhysAddr::new(0x100000);
     
     // Page table indexing pattern
-    let page_table_size = 512 * 8; // 512 entries * 8 bytes per entry
+    // x86_64 page tables have 512 entries, each 8 bytes
+    const PAGE_TABLE_ENTRIES: u64 = 512;
+    const ENTRY_SIZE: u64 = 8;
+    let page_table_size = PAGE_TABLE_ENTRIES * ENTRY_SIZE;
+    
     let pt_addr = base.as_u64();
-    let next_pt = PhysAddr::new(align_up(pt_addr + page_table_size as u64, PAGE_SIZE as u64));
+    let next_pt = PhysAddr::new(align_up(pt_addr + page_table_size, PAGE_SIZE as u64));
     
     assert!(next_pt.is_aligned(PAGE_SIZE as u64));
-    assert!(next_pt.as_u64() >= base.as_u64() + page_table_size as u64);
+    assert!(next_pt.as_u64() >= base.as_u64() + page_table_size);
 }

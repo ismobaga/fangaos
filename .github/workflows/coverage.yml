@@ -23,6 +23,14 @@ jobs:
         components: rust-src
     
     - name: Install cargo-tarpaulin
+      uses: actions-rs/install@v0.1
+      with:
+        crate: cargo-tarpaulin
+        version: latest
+      continue-on-error: true
+    
+    - name: Fallback - Install cargo-tarpaulin
+      if: failure()
       run: cargo install cargo-tarpaulin
     
     - name: Cache cargo build
