@@ -52,6 +52,22 @@ pub unsafe fn set_masks(pic1_mask: u8, pic2_mask: u8) {
     outb(PIC2_DATA, pic2_mask);
 }
 
+pub unsafe fn get_masks() -> (u8, u8) {
+    (inb(PIC1_DATA), inb(PIC2_DATA))
+}
+
+pub unsafe fn mask_irq(irq: u8) {
+    let port = if irq < 8 { PIC1_DATA } else { PIC2_DATA };
+    let value = inb(port) | (1 << (irq % 8));
+    outb(port, value);
+}
+
+pub unsafe fn unmask_irq(irq: u8) {
+    let port = if irq < 8 { PIC1_DATA } else { PIC2_DATA };
+    let value = inb(port) & !(1 << (irq % 8));
+    outb(port, value);
+}
+
 pub unsafe fn eoi(irq: u8) {
     // If IRQ came from PIC2, we must ACK PIC2 as well
     if irq >= 8 {

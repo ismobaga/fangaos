@@ -12,6 +12,16 @@ pub fn init() {
     gdt::init();
     interrupts::idt::init();
 
+    // Try to initialize APIC, fall back to PIC if not available
+    match interrupts::apic::init() {
+        Ok(()) => {
+            serial_println!("[APIC] initialized ✅");
+        }
+        Err(e) => {
+            serial_println!("[APIC] not available: {}, using PIC", e);
+        }
+    }
+
     // Keep interrupts OFF for a moment? You can enable now if you want IRQs.
     unsafe {
         core::arch::asm!("sti");
