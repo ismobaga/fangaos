@@ -144,6 +144,21 @@ pub extern "C" fn _start() -> ! {
 
     arch::serial_println!("[Fanga] framebuffer filled ✅");
 
+    // Uncomment the following to test double fault handling:
+    // This will trigger a stack overflow which causes a page fault,
+    // and since the stack is corrupted, it will then trigger a double fault.
+    // The double fault handler uses IST so it won't cascade into a triple fault.
+    // arch::serial_println!("[Fanga] Testing double fault handler...");
+    // unsafe {
+    //     fn trigger_stack_overflow() {
+    //         // Infinite recursion to overflow the stack
+    //         let x = [0u8; 4096];  // Use some stack space
+    //         core::hint::black_box(&x); // Prevent optimization
+    //         trigger_stack_overflow();
+    //     }
+    //     trigger_stack_overflow();
+    // }
+
     loop {
         // core::hint::spin_loop();
         unsafe {
