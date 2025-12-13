@@ -233,7 +233,11 @@ pub mod debug {
     /// Prints a memory dump of a region
     ///
     /// # Safety
-    /// The caller must ensure that the memory region is valid and readable
+    /// The caller must ensure that:
+    /// - The memory region [addr, addr + size) is valid and mapped
+    /// - The memory is readable and won't cause page faults
+    /// - The memory is not being modified concurrently
+    /// - The HHDM mapping is valid for physical addresses
     pub unsafe fn dump_memory(addr: u64, size: usize, label: &str) {
         use fanga_arch_x86_64 as arch;
 

@@ -73,8 +73,13 @@ impl HeapAllocator {
 
     /// Allocates memory with the given layout
     ///
+    /// Returns a pointer to the allocated memory, or a null pointer if allocation fails.
+    /// For zero-sized allocations, returns a dangling (non-null but invalid) pointer that
+    /// should not be dereferenced.
+    ///
     /// # Safety
-    /// This method is not thread-safe and must be called with proper synchronization
+    /// This method is not thread-safe and must be called with proper synchronization.
+    /// The layout must have a power-of-two alignment.
     pub unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
         // Handle zero-sized allocations
         if layout.size() == 0 {
