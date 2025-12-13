@@ -151,9 +151,21 @@ extern "x86-interrupt" fn timer_irq_handler(_frame: InterruptStackFrame) {
 }
 
 extern "x86-interrupt" fn keyboard_irq_handler(_frame: InterruptStackFrame) {
-    // Read scancode from PS/2 data port 0x60 (prevents stuck IRQ)
-    let scancode = unsafe { crate::port::inb(0x60) };
-    serial_println!("[IRQ] keyboard scancode=0x{:x}", scancode);
+    // Read scancode from PS/2 data port 0x60
+    let kbd = crate::keyboard::keyboard();
+    let scancode = kbd.read_scancode();
+    
+    if let Some(event) = kbd.process_scancode(scancode) {
+        // Only handle key presses for now
+        if let crate::keyboard::KeyEvent::Press(keycode) = event {
+            if let Some(ascii) = kbd.to_ascii(keycode) {
+                serial_println!("[Keyboard] '{}'", ascii);
+            } else {
+                serial_println!("[Keyboard] {:?}", keycode);
+            }
+        }
+    }
+    
     unsafe {
         pic::eoi(IRQ_KEYBOARD);
     }
