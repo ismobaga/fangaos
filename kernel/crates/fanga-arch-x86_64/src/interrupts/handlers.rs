@@ -4,9 +4,8 @@
 /// at runtime, allowing device drivers and other kernel components to hook into
 /// specific interrupt vectors.
 
-use crate::interrupts::idt::{IdtEntry, InterruptStackFrame, PIC1_OFFSET, PIC2_OFFSET};
+use crate::interrupts::idt::{InterruptStackFrame, PIC1_OFFSET, PIC2_OFFSET};
 use crate::interrupts::pic;
-use crate::serial_println;
 
 /// Type alias for interrupt handler functions
 pub type InterruptHandler = fn(InterruptStackFrame);
@@ -71,6 +70,7 @@ impl HandlerRegistry {
     }
 
     /// Call all registered handlers for a vector
+    #[allow(dead_code)]
     fn dispatch(&self, vector: u8, frame: InterruptStackFrame) {
         let vector_handlers = &self.handlers[vector as usize];
         
@@ -82,6 +82,7 @@ impl HandlerRegistry {
     }
 
     /// Check if a vector has any registered handlers
+    #[allow(dead_code)]
     fn has_handlers(&self, vector: u8) -> bool {
         let vector_handlers = &self.handlers[vector as usize];
         vector_handlers.iter().any(|e| e.handler.is_some())
@@ -110,6 +111,7 @@ pub unsafe fn unregister_handler(vector: u8, handler: InterruptHandler) -> Resul
 }
 
 /// Internal dispatcher called from the IDT entries
+#[allow(dead_code)]
 pub(crate) unsafe fn dispatch_handlers(vector: u8, frame: InterruptStackFrame) {
     HANDLER_REGISTRY.dispatch(vector, frame);
 }

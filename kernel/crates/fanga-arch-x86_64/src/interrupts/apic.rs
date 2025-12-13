@@ -12,17 +12,26 @@ const APIC_BASE_MSR: u32 = 0x1B;
 
 /// Local APIC register offsets
 const APIC_ID: u32 = 0x020;
-const APIC_VERSION: u32 = 0x030;
-const APIC_TPR: u32 = 0x080; // Task Priority Register
 const APIC_EOI: u32 = 0x0B0; // End of Interrupt
-const APIC_SPURIOUS: u32 = 0x0F0; // Spurious Interrupt Vector Register
-const APIC_LVT_TIMER: u32 = 0x320; // Local Vector Table Timer
-const APIC_LVT_LINT0: u32 = 0x350; // Local Vector Table LINT0
-const APIC_LVT_LINT1: u32 = 0x360; // Local Vector Table LINT1
-const APIC_LVT_ERROR: u32 = 0x370; // Local Vector Table Error
 const APIC_TIMER_INIT: u32 = 0x380; // Initial Count
 const APIC_TIMER_CURRENT: u32 = 0x390; // Current Count
 const APIC_TIMER_DIV: u32 = 0x3E0; // Divide Configuration
+
+// These will be used when APIC MMIO is properly mapped
+#[allow(dead_code)]
+const APIC_VERSION: u32 = 0x030;
+#[allow(dead_code)]
+const APIC_TPR: u32 = 0x080; // Task Priority Register
+#[allow(dead_code)]
+const APIC_SPURIOUS: u32 = 0x0F0; // Spurious Interrupt Vector Register
+#[allow(dead_code)]
+const APIC_LVT_TIMER: u32 = 0x320; // Local Vector Table Timer
+#[allow(dead_code)]
+const APIC_LVT_LINT0: u32 = 0x350; // Local Vector Table LINT0
+#[allow(dead_code)]
+const APIC_LVT_LINT1: u32 = 0x360; // Local Vector Table LINT1
+#[allow(dead_code)]
+const APIC_LVT_ERROR: u32 = 0x370; // Local Vector Table Error
 
 /// APIC state
 pub struct Apic {
