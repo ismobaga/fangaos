@@ -12,11 +12,11 @@ kernel:
 limine:
 	@if [ ! -f boot/limine/limine-bios.sys ]; then \
 		echo "Initializing Limine submodule..."; \
-		git submodule update --init boot/limine; \
+		git submodule update --init boot/limine || exit 1; \
 	fi
-	@if [ ! -f boot/limine/limine ]; then \
+	@if [ ! -x boot/limine/limine ]; then \
 		echo "Building Limine utility..."; \
-		$(MAKE) -C boot/limine; \
+		$(MAKE) -C boot/limine || exit 1; \
 	fi
 
 iso: kernel limine
