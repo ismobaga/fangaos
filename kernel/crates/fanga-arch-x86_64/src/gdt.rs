@@ -172,6 +172,8 @@ static mut DOUBLE_FAULT_STACK: [u8; DOUBLE_FAULT_STACK_SIZE] = [0; DOUBLE_FAULT_
 /// GDT segment selectors
 pub const KERNEL_CODE_SELECTOR: u16 = 0x08; // offset 1 * 8
 pub const KERNEL_DATA_SELECTOR: u16 = 0x10; // offset 2 * 8
+pub const USER_CODE_SELECTOR: u16 = 0x18; // offset 3 * 8
+pub const USER_DATA_SELECTOR: u16 = 0x20; // offset 4 * 8
 pub const TSS_SELECTOR: u16 = 0x28; // offset 5 * 8
 
 /// IST index for double fault (1-based)
