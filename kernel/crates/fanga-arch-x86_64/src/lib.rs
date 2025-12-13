@@ -7,6 +7,7 @@ pub mod keyboard;
 pub mod port;
 pub mod serial;
 pub mod context;
+pub mod syscall;
 
 pub fn init() {
     serial::init();
@@ -22,6 +23,9 @@ pub fn init() {
             serial_println!("[APIC] not available: {}, using PIC", e);
         }
     }
+
+    // Initialize system call interface
+    syscall::init();
 
     // Keep interrupts OFF for a moment? You can enable now if you want IRQs.
     unsafe {
