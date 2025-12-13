@@ -12,6 +12,7 @@ use limine::BaseRevision;
 use fanga_arch_x86_64 as arch;
 
 mod pmm;
+mod vmm;
 
 /* -------------------------------------------------------------------------- */
 /*                          LIMINE REQUIRED MARKERS                            */
@@ -185,6 +186,85 @@ pub extern "C" fn _start() -> ! {
         }
         
         arch::serial_println!("[Fanga] PMM test completed ✅");
+        
+        // Test VMM (Virtual Memory Manager)
+        arch::serial_println!("[Fanga] Testing VMM...");
+        
+        unsafe {
+            // Create a new page table
+            if let Some(mut mapper) = vmm::PageTableMapper::new(&mut PMM, hhdm.offset()) {
+                arch::serial_println!("[Fanga] Created new page table at: 0x{:x}", mapper.pml4_addr());
+                
+                // Test mapping: map virtual address 0x1000_0000 to a physical page
+                if let Some(test_phys) = PMM.alloc_page() {
+                    arch::serial_println!("[Fanga] Allocated test page at: 0x{:x}", test_phys);
+                    
+                    let test_virt = 0x1000_0000u64;
+                    let flags = vmm::PageTableFlags::PRESENT
+                        .with(vmm::PageTableFlags::WRITABLE);
+                    
+                    match mapper.map(test_virt, test_phys, flags, &mut PMM) {
+                        Ok(()) => {
+                            arch::serial_println!("[Fanga] Mapped 0x{:x} -> 0x{:x}", test_virt, test_phys);
+                            
+                            // Test translation
+                            if let Some(translated) = mapper.translate(test_virt) {
+                                arch::serial_println!("[Fanga] Translation: 0x{:x} -> 0x{:x}", test_virt, translated);
+                                
+                                if translated == test_phys {
+                                    arch::serial_println!("[Fanga] Translation correct ✅");
+                                } else {
+                                    arch::serial_println!("[Fanga] Translation incorrect ❌");
+                                }
+                            } else {
+                                arch::serial_println!("[Fanga] Translation failed ❌");
+                            }
+                            
+                            // Test unmapping
+                            match mapper.unmap(test_virt) {
+                                Ok(unmapped_phys) => {
+                                    arch::serial_println!("[Fanga] Unmapped 0x{:x}, got phys: 0x{:x}", test_virt, unmapped_phys);
+                                    
+                                    if unmapped_phys == test_phys {
+                                        arch::serial_println!("[Fanga] Unmap correct ✅");
+                                    } else {
+                                        arch::serial_println!("[Fanga] Unmap returned wrong address ❌");
+                                    }
+                                    
+                                    // Verify translation returns None after unmap
+                                    if mapper.translate(test_virt).is_none() {
+                                        arch::serial_println!("[Fanga] Translation after unmap: None (correct) ✅");
+                                    } else {
+                                        arch::serial_println!("[Fanga] Translation after unmap still works ❌");
+                                    }
+                                }
+                                Err(e) => {
+                                    arch::serial_println!("[Fanga] Unmap failed: {}", e);
+                                }
+                            }
+                            
+                            // Free the test page
+                            PMM.free_page(test_phys);
+                            arch::serial_println!("[Fanga] Freed test page");
+                        }
+                        Err(e) => {
+                            arch::serial_println!("[Fanga] Map failed: {}", e);
+                            PMM.free_page(test_phys);
+                        }
+                    }
+                } else {
+                    arch::serial_println!("[Fanga] Failed to allocate test page for VMM");
+                }
+                
+                arch::serial_println!("[Fanga] VMM test completed ✅");
+                
+                // Get current page table (CR3)
+                let current_cr3 = vmm::PageTableMapper::current_cr3();
+                arch::serial_println!("[Fanga] Current CR3 (page table): 0x{:x}", current_cr3);
+            } else {
+                arch::serial_println!("[Fanga] Failed to create page table mapper");
+            }
+        }
     } else {
         arch::serial_println!("[Fanga] Cannot initialize PMM: missing memory map or HHDM");
     }
