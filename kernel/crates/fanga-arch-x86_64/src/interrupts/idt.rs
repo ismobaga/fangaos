@@ -44,15 +44,19 @@ impl IdtEntry {
     }
 
     pub fn set_handler(&mut self, handler: u64) {
+        self.set_handler_with_ist(handler, 0);
+    }
+
+    pub fn set_handler_with_ist(&mut self, handler: u64, ist: u8) {
         self.offset_low = handler as u16;
         self.offset_mid = (handler >> 16) as u16;
         self.offset_high = (handler >> 32) as u32;
 
-        // Kernel CS selector (GDT code segment). In long mode this is typically 0x08.
-        self.selector = 0x08;
+        // Kernel CS selector (GDT code segment)
+        self.selector = crate::gdt::KERNEL_CODE_SELECTOR;
 
-        // IST = 0 for now (we’ll add a proper TSS + IST later)
-        self.ist = 0;
+        // IST index (0 = don't use IST, 1-7 = use IST entry)
+        self.ist = ist;
 
         // 0x8E = present | DPL=0 | interrupt gate
         self.type_attr = 0x8E;
@@ -162,7 +166,7 @@ pub fn init() {
         IDT[VEC_BREAKPOINT as usize].set_handler(breakpoint_handler as u64);
         IDT[VEC_GENERAL_PROTECTION as usize].set_handler(gp_fault_handler as u64);
         IDT[VEC_PAGE_FAULT as usize].set_handler(page_fault_handler as u64);
-        IDT[VEC_DOUBLE_FAULT as usize].set_handler(double_fault_handler as u64);
+        IDT[VEC_DOUBLE_FAULT as usize].set_handler_with_ist(double_fault_handler as u64, crate::gdt::DOUBLE_FAULT_IST_INDEX);
 
         // PIC remap + enable timer/keyboard only
         pic::remap(PIC1_OFFSET, PIC2_OFFSET);
@@ -175,7 +179,7 @@ pub fn init() {
 
         let idtr = Idtr {
             limit: (core::mem::size_of::<[IdtEntry; IDT_LEN]>() - 1) as u16,
-            base: (&IDT as *const _) as u64,
+            base: (&raw const IDT as *const _) as u64,
         };
 
         lidt(&idtr);
