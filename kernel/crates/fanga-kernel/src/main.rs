@@ -95,7 +95,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     unsafe {
-        core::arch::asm!("int3");
+        // core::arch::asm!("int3");
     }
 
     arch::serial_println!("[Fanga] entered _start");
@@ -199,7 +199,7 @@ pub extern "C" fn _start() -> ! {
     // This will trigger a stack overflow which causes a page fault,
     // and since the stack is corrupted, it will then trigger a double fault.
     // The double fault handler uses IST so it won't cascade into a triple fault.
-    // arch::serial_println!("[Fanga] Testing double fault handler...");
+    arch::serial_println!("[Fanga] Testing double fault handler...");
     // unsafe {
     //     fn trigger_stack_overflow() {
     //         // Infinite recursion to overflow the stack

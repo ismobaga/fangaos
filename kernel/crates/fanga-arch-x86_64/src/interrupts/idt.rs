@@ -56,7 +56,7 @@ impl IdtEntry {
         self.selector = crate::gdt::KERNEL_CODE_SELECTOR;
 
         // IST index (0 = don't use IST, 1-7 = use IST entry)
-        self.ist = ist;
+        self.ist = ist & 0x7;
 
         // 0x8E = present | DPL=0 | interrupt gate
         self.type_attr = 0x8E;
@@ -122,11 +122,17 @@ extern "x86-interrupt" fn double_fault_handler(frame: InterruptStackFrame, error
 
 extern "x86-interrupt" fn page_fault_handler(frame: InterruptStackFrame, error_code: u64) {
     let cr2 = unsafe { read_cr2() };
+
     serial_println!(
         "[IDT] Page Fault (#PF) ec=0x{:x} cr2=0x{:x}",
         error_code,
         cr2
     );
+
+    // unsafe {
+    //     *(0x0 as *mut u64) = 1;
+    // }
+
     serial_println!("      rip=0x{:x} rflags=0x{:x}", frame.rip, frame.rflags);
     loop {
         unsafe {
@@ -166,7 +172,10 @@ pub fn init() {
         IDT[VEC_BREAKPOINT as usize].set_handler(breakpoint_handler as u64);
         IDT[VEC_GENERAL_PROTECTION as usize].set_handler(gp_fault_handler as u64);
         IDT[VEC_PAGE_FAULT as usize].set_handler(page_fault_handler as u64);
-        IDT[VEC_DOUBLE_FAULT as usize].set_handler_with_ist(double_fault_handler as u64, crate::gdt::DOUBLE_FAULT_IST_INDEX);
+        IDT[VEC_DOUBLE_FAULT as usize].set_handler_with_ist(
+            double_fault_handler as u64,
+            crate::gdt::DOUBLE_FAULT_IST_INDEX,
+        );
 
         // PIC remap + enable timer/keyboard only
         pic::remap(PIC1_OFFSET, PIC2_OFFSET);

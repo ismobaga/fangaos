@@ -165,8 +165,8 @@ static mut GDT: GdtTable = GdtTable {
 
 static mut TSS: Tss = Tss::new();
 
-// Double fault stack - 4KB should be enough for double fault handling
-const DOUBLE_FAULT_STACK_SIZE: usize = 4096;
+// Double fault stack - 128KB should be enough for double fault handling
+const DOUBLE_FAULT_STACK_SIZE: usize = 32 * 4096;
 static mut DOUBLE_FAULT_STACK: [u8; DOUBLE_FAULT_STACK_SIZE] = [0; DOUBLE_FAULT_STACK_SIZE];
 
 /// GDT segment selectors

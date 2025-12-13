@@ -12,9 +12,9 @@ pub fn init() {
     interrupts::idt::init();
 
     // Keep interrupts OFF for a moment? You can enable now if you want IRQs.
-    // unsafe {
-    // core::arch::asm!("sti");
-    // }
+    unsafe {
+        core::arch::asm!("sti");
+    }
 }
 
 #[macro_export]
