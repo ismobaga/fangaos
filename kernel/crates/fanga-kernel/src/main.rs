@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 use core::panic::PanicInfo;
 
 use limine::request::{
@@ -11,8 +13,14 @@ use limine::BaseRevision;
 
 use fanga_arch_x86_64 as arch;
 
-mod pmm;
-mod vmm;
+mod memory;
+
+/* -------------------------------------------------------------------------- */
+/*                             GLOBAL ALLOCATOR                                */
+/* -------------------------------------------------------------------------- */
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: memory::GlobalHeapAllocator = memory::GlobalHeapAllocator::new();
 
 /* -------------------------------------------------------------------------- */
 /*                          LIMINE REQUIRED MARKERS                            */
@@ -142,7 +150,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     // Initialize PMM (Physical Memory Manager)
-    static mut PMM: pmm::PhysicalMemoryManager = pmm::PhysicalMemoryManager::new();
+    static mut PMM: memory::PhysicalMemoryManager = memory::PhysicalMemoryManager::new();
     
     if let (Some(mm), Some(hhdm)) = (MEMMAP_REQ.get_response(), HHDM_REQ.get_response()) {
         arch::serial_println!("[Fanga] Initializing PMM...");
@@ -187,12 +195,145 @@ pub extern "C" fn _start() -> ! {
         
         arch::serial_println!("[Fanga] PMM test completed ✅");
         
+        // Initialize heap allocator
+        arch::serial_println!("[Fanga] Initializing heap allocator...");
+        
+        // Allocate pages for the heap (1 MiB = 256 pages)
+        const HEAP_SIZE: usize = 1024 * 1024; // 1 MiB
+        const HEAP_PAGES: usize = HEAP_SIZE / memory::PAGE_SIZE;
+        
+        unsafe {
+            // Allocate contiguous physical pages for the heap
+            // We need to find a contiguous region, or just use the first page
+            // and allocate more pages (though they may not be contiguous in physical memory,
+            // they will be contiguous in virtual memory via HHDM)
+            
+            if let Some(heap_start_phys) = PMM.alloc_page() {
+                // For simplicity, we'll use just the first allocated page to start
+                // In a real kernel, we'd want to allocate all pages first
+                // But to avoid the chicken-egg problem with Vec, we'll start with one page
+                
+                // For simplicity, we'll use the HHDM mapping for the heap
+                let heap_start_virt = hhdm.offset() + heap_start_phys;
+                let initial_heap_size = memory::PAGE_SIZE;
+                
+                GLOBAL_ALLOCATOR.init(heap_start_virt as usize, initial_heap_size);
+                
+                arch::serial_println!(
+                    "[Fanga] Heap initialized: {} KiB at 0x{:x}",
+                    initial_heap_size / 1024,
+                    heap_start_virt
+                );
+                
+                // Update memory statistics
+                memory::stats::stats().set_total_heap(initial_heap_size);
+                
+                // Test heap allocation
+                arch::serial_println!("[Fanga] Testing heap allocation...");
+                
+                // Test with Vec (requires alloc)
+                let mut test_vec = alloc::vec![1, 2, 3, 4, 5];
+                arch::serial_println!("[Fanga] Created Vec with {} elements", test_vec.len());
+                
+                test_vec.push(6);
+                test_vec.push(7);
+                arch::serial_println!("[Fanga] Vec now has {} elements", test_vec.len());
+                
+                // Test with Box
+                let test_box = alloc::boxed::Box::new(42u64);
+                arch::serial_println!("[Fanga] Created Box with value: {}", *test_box);
+                
+                arch::serial_println!("[Fanga] Heap allocation test completed ✅");
+            } else {
+                arch::serial_println!("[Fanga] Failed to allocate heap memory");
+            }
+        }
+        
+        // Initialize memory regions
+        arch::serial_println!("[Fanga] Initializing memory regions...");
+        
+        static mut MEMORY_REGIONS: memory::regions::MemoryRegionManager = 
+            memory::regions::MemoryRegionManager::new();
+        
+        unsafe {
+            // Add regions based on memory map
+            for entry in mm.entries() {
+                let region_type = match entry.entry_type {
+                    limine::memory_map::EntryType::USABLE => {
+                        memory::regions::MemoryRegionType::Available
+                    }
+                    limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE |
+                    limine::memory_map::EntryType::ACPI_RECLAIMABLE |
+                    limine::memory_map::EntryType::ACPI_NVS |
+                    limine::memory_map::EntryType::BAD_MEMORY |
+                    limine::memory_map::EntryType::RESERVED => {
+                        memory::regions::MemoryRegionType::Reserved
+                    }
+                    limine::memory_map::EntryType::FRAMEBUFFER |
+                    limine::memory_map::EntryType::KERNEL_AND_MODULES => {
+                        memory::regions::MemoryRegionType::KernelData
+                    }
+                    _ => memory::regions::MemoryRegionType::Reserved,
+                };
+                
+                let region = memory::regions::MemoryRegion::new(
+                    entry.base,
+                    entry.length,
+                    region_type,
+                );
+                
+                if !MEMORY_REGIONS.add_region(region) {
+                    arch::serial_println!("[Fanga] Warning: Memory region manager is full");
+                    break;
+                }
+            }
+            
+            arch::serial_println!("[Fanga] Memory regions initialized");
+            arch::serial_println!("[Fanga] Total regions: {}", MEMORY_REGIONS.count_by_type(
+                memory::regions::MemoryRegionType::Available
+            ) + MEMORY_REGIONS.count_by_type(
+                memory::regions::MemoryRegionType::Reserved
+            ));
+            
+            // Print some region statistics
+            for region_type in [
+                memory::regions::MemoryRegionType::Available,
+                memory::regions::MemoryRegionType::Reserved,
+                memory::regions::MemoryRegionType::KernelData,
+            ] {
+                let count = MEMORY_REGIONS.count_by_type(region_type);
+                let size = MEMORY_REGIONS.total_size_by_type(region_type);
+                if count > 0 {
+                    arch::serial_println!(
+                        "[Fanga]   {}: {} regions, {} KiB",
+                        region_type,
+                        count,
+                        size / 1024
+                    );
+                }
+            }
+        }
+        
+        // Update memory statistics
+        let total_mem = unsafe { PMM.total_pages() * memory::PAGE_SIZE };
+        let used_mem = unsafe { PMM.used_pages() * memory::PAGE_SIZE };
+        memory::stats::stats().set_total_physical(total_mem);
+        memory::stats::stats().set_used_physical(used_mem);
+        
+        // Print memory statistics
+        arch::serial_println!("[Fanga] Memory Statistics:");
+        arch::serial_println!("[Fanga]   Total Physical: {} MiB", total_mem / (1024 * 1024));
+        arch::serial_println!("[Fanga]   Used Physical:  {} MiB", used_mem / (1024 * 1024));
+        arch::serial_println!("[Fanga]   Free Physical:  {} MiB", 
+            (total_mem - used_mem) / (1024 * 1024)
+        );
+        
         // Test VMM (Virtual Memory Manager)
         arch::serial_println!("[Fanga] Testing VMM...");
         
         unsafe {
             // Create a new page table
-            if let Some(mut mapper) = vmm::PageTableMapper::new(&mut PMM, hhdm.offset()) {
+            if let Some(mut mapper) = memory::PageTableMapper::new(&mut PMM, hhdm.offset()) {
                 arch::serial_println!("[Fanga] Created new page table at: 0x{:x}", mapper.pml4_addr());
                 
                 // Test mapping: map virtual address 0x1000_0000 to a physical page
@@ -200,8 +341,8 @@ pub extern "C" fn _start() -> ! {
                     arch::serial_println!("[Fanga] Allocated test page at: 0x{:x}", test_phys);
                     
                     let test_virt = 0x1000_0000u64;
-                    let flags = vmm::PageTableFlags::PRESENT
-                        .with(vmm::PageTableFlags::WRITABLE);
+                    let flags = memory::PageTableFlags::PRESENT
+                        .with(memory::PageTableFlags::WRITABLE);
                     
                     match mapper.map(test_virt, test_phys, flags, &mut PMM) {
                         Ok(()) => {
@@ -259,7 +400,7 @@ pub extern "C" fn _start() -> ! {
                 arch::serial_println!("[Fanga] VMM test completed ✅");
                 
                 // Get current page table (CR3)
-                let current_cr3 = vmm::PageTableMapper::current_cr3();
+                let current_cr3 = memory::PageTableMapper::current_cr3();
                 arch::serial_println!("[Fanga] Current CR3 (page table): 0x{:x}", current_cr3);
             } else {
                 arch::serial_println!("[Fanga] Failed to create page table mapper");
