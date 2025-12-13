@@ -190,7 +190,9 @@ unsafe fn ltr(selector: u16) {
 pub fn init() {
     unsafe {
         // Set up the double fault stack in IST1
-        let stack_top = (&raw const DOUBLE_FAULT_STACK).cast::<u8>() as u64 + DOUBLE_FAULT_STACK_SIZE as u64;
+        // The stack grows downward, so we need the address after the last byte
+        let stack_start = &raw const DOUBLE_FAULT_STACK as *const u8 as u64;
+        let stack_top = stack_start + DOUBLE_FAULT_STACK_SIZE as u64;
         TSS.ist1 = stack_top;
 
         // Create TSS descriptor
@@ -207,6 +209,7 @@ pub fn init() {
 
         // Reload segment registers
         // CS is reloaded via far return
+        // Note: This modifies RSP by pushing/popping values
         asm!(
             "push {sel}",
             "lea {tmp}, [rip + 2f]",
@@ -215,7 +218,6 @@ pub fn init() {
             "2:",
             sel = in(reg) KERNEL_CODE_SELECTOR as u64,
             tmp = lateout(reg) _,
-            options(preserves_flags),
         );
 
         // Reload data segments
