@@ -15,6 +15,7 @@ use fanga_arch_x86_64 as arch;
 
 mod memory;
 mod io;
+mod task;
 
 /* -------------------------------------------------------------------------- */
 /*                             GLOBAL ALLOCATOR                                */
@@ -405,6 +406,110 @@ pub extern "C" fn _start() -> ! {
         arch::serial_println!("[Fanga] Cannot initialize PMM: missing memory map or HHDM");
     }
 
+    // Initialize task scheduler
+    arch::serial_println!("[Fanga] Initializing task scheduler...");
+    task::scheduler::init();
+    arch::serial_println!("[Fanga] Task scheduler initialized ✅");
+    
+    // Demonstrate task creation
+    arch::serial_println!("[Fanga] Testing task management...");
+    
+    {
+        let mut scheduler_guard = task::scheduler::scheduler();
+        let scheduler = scheduler_guard.as_mut().expect("Scheduler not initialized");
+        
+        // Create a simple task
+        let task1 = task::Task::new(
+            task::TaskId::new(0), // Will be overwritten by scheduler
+            memory::VirtAddr::new(0x1000), // Dummy entry point
+            memory::VirtAddr::new(0x10000), // Dummy stack
+            4096, // 4KB stack
+            memory::PhysAddr::new(0x0), // Dummy page table
+            task::TaskPriority::Normal,
+        );
+        
+        let mut task2 = task::Task::new(
+            task::TaskId::new(0),
+            memory::VirtAddr::new(0x2000),
+            memory::VirtAddr::new(0x20000),
+            4096,
+            memory::PhysAddr::new(0x0),
+            task::TaskPriority::High,
+        );
+        task2.set_name("high_priority");
+        
+        let mut task3 = task::Task::new(
+            task::TaskId::new(0),
+            memory::VirtAddr::new(0x3000),
+            memory::VirtAddr::new(0x30000),
+            4096,
+            memory::PhysAddr::new(0x0),
+            task::TaskPriority::Low,
+        );
+        task3.set_name("low_priority");
+        
+        // Add tasks to scheduler
+        match scheduler.add_task(task1) {
+            Ok(id) => arch::serial_println!("[Fanga] Created task: {:?}", id),
+            Err(e) => arch::serial_println!("[Fanga] Failed to create task: {}", e),
+        }
+        
+        match scheduler.add_task(task2) {
+            Ok(id) => arch::serial_println!("[Fanga] Created task: {:?} (high priority)", id),
+            Err(e) => arch::serial_println!("[Fanga] Failed to create task: {}", e),
+        }
+        
+        match scheduler.add_task(task3) {
+            Ok(id) => arch::serial_println!("[Fanga] Created task: {:?} (low priority)", id),
+            Err(e) => arch::serial_println!("[Fanga] Failed to create task: {}", e),
+        }
+        
+        arch::serial_println!("[Fanga] Total tasks: {}", scheduler.total_task_count());
+        arch::serial_println!("[Fanga] Ready tasks: {}", scheduler.ready_task_count());
+        
+        // Test scheduling
+        arch::serial_println!("[Fanga] Testing scheduler...");
+        for i in 0..5 {
+            let (prev, next, switched) = scheduler.schedule();
+            arch::serial_println!(
+                "[Fanga]   Schedule #{}: prev={:?}, next={:?}, switched={}",
+                i + 1, prev, next, switched
+            );
+            
+            if let Some(task_id) = next {
+                if let Some(task) = scheduler.get_task(task_id) {
+                    arch::serial_println!(
+                        "[Fanga]     -> Running task '{}' (priority: {:?})",
+                        task.name(),
+                        task.priority
+                    );
+                }
+            }
+        }
+    }
+    
+    arch::serial_println!("[Fanga] Task management test completed ✅");
+    
+    // Test IPC
+    arch::serial_println!("[Fanga] Testing IPC...");
+    
+    use alloc::vec;
+    let sender_id = task::TaskId::new(1);
+    let mut msg_queue = task::MessageQueue::new(10);
+    
+    let msg1 = task::Message::new(sender_id, vec![1, 2, 3, 4]).unwrap();
+    let msg2 = task::Message::new(sender_id, vec![5, 6, 7, 8]).unwrap();
+    
+    msg_queue.send(msg1).unwrap();
+    msg_queue.send(msg2).unwrap();
+    arch::serial_println!("[Fanga] Sent 2 messages, queue length: {}", msg_queue.len());
+    
+    if let Some(msg) = msg_queue.receive() {
+        arch::serial_println!("[Fanga] Received message from {:?}: {:?}", msg.sender, msg.data());
+    }
+    
+    arch::serial_println!("[Fanga] IPC test completed ✅");
+
     // Test the new console and logging system
     console_println!("===========================================");
     console_println!("    FangaOS - Operating System Kernel");
@@ -413,6 +518,8 @@ pub extern "C" fn _start() -> ! {
     
     log_info!("Console system initialized");
     log_info!("Logging framework active");
+    log_info!("Task scheduler initialized");
+    log_info!("Process management ready");
     
     // Test different log levels
     log_debug!("Debug message example");
@@ -420,6 +527,12 @@ pub extern "C" fn _start() -> ! {
     log_warn!("Warning message example");
     log_error!("Error message example");
     
+    console_println!();
+    console_println!("Kernel Features:");
+    console_println!("  [x] Memory Management (PMM, VMM, Heap)");
+    console_println!("  [x] Interrupt Handling");
+    console_println!("  [x] Task Scheduling (Round-Robin & Priority)");
+    console_println!("  [x] Inter-Process Communication");
     console_println!();
     console_println!("Keyboard input is now active!");
     console_println!("Type something and see it appear in serial output...");

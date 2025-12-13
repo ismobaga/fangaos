@@ -6,6 +6,7 @@ pub mod interrupts;
 pub mod keyboard;
 pub mod port;
 pub mod serial;
+pub mod context;
 
 pub fn init() {
     serial::init();

@@ -8,7 +8,11 @@
 #[cfg(not(test))]
 extern crate alloc;
 
+#[cfg(test)]
+extern crate alloc;
+
 pub mod memory;
+pub mod task;
 
 // IO module only available in no_std builds
 #[cfg(not(test))]
