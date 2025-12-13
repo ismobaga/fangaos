@@ -1,0 +1,91 @@
+name: Test Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: rust-src
+    
+    - name: Install cargo-tarpaulin
+      run: cargo install cargo-tarpaulin
+    
+    - name: Cache cargo build
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          kernel/target
+        key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-coverage-
+    
+    - name: Generate coverage report
+      working-directory: kernel/crates/fanga-kernel
+      run: |
+        cargo tarpaulin \
+          --target x86_64-unknown-linux-gnu \
+          --out xml \
+          --out html \
+          --output-dir ../../coverage \
+          --timeout 300 \
+          --verbose
+    
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: kernel/coverage/cobertura.xml
+        fail_ci_if_error: false
+        verbose: true
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      continue-on-error: true
+    
+    - name: Upload coverage HTML
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: kernel/coverage/
+        retention-days: 30
+    
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      continue-on-error: true
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const xmlPath = 'kernel/coverage/cobertura.xml';
+            if (fs.existsSync(xmlPath)) {
+              const xml = fs.readFileSync(xmlPath, 'utf8');
+              const match = xml.match(/line-rate="([0-9.]+)"/);
+              if (match) {
+                const coverage = (parseFloat(match[1]) * 100).toFixed(2);
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `## Test Coverage Report\n\n📊 Line Coverage: **${coverage}%**\n\n[View detailed report](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+                });
+              }
+            }
+          } catch (error) {
+            console.log('Could not post coverage comment:', error);
+          }
