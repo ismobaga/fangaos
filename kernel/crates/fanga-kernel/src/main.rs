@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 use core::panic::PanicInfo;
 
 use limine::request::{
@@ -13,6 +15,16 @@ use fanga_arch_x86_64 as arch;
 
 mod pmm;
 mod vmm;
+mod heap;
+mod memory_regions;
+mod memory_stats;
+
+/* -------------------------------------------------------------------------- */
+/*                             GLOBAL ALLOCATOR                                */
+/* -------------------------------------------------------------------------- */
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: heap::GlobalHeapAllocator = heap::GlobalHeapAllocator::new();
 
 /* -------------------------------------------------------------------------- */
 /*                          LIMINE REQUIRED MARKERS                            */
@@ -184,6 +196,145 @@ pub extern "C" fn _start() -> ! {
                 arch::serial_println!("[Fanga] Failed to allocate first page");
             }
         }
+        
+        arch::serial_println!("[Fanga] PMM test completed ✅");
+        
+        // Initialize heap allocator
+        arch::serial_println!("[Fanga] Initializing heap allocator...");
+        
+        // Allocate pages for the heap (1 MiB = 256 pages)
+        const HEAP_SIZE: usize = 1024 * 1024; // 1 MiB
+        const HEAP_PAGES: usize = HEAP_SIZE / pmm::PAGE_SIZE;
+        
+        unsafe {
+            if let Some(heap_start_phys) = PMM.alloc_page() {
+                // Allocate remaining pages
+                let mut heap_phys_pages = alloc::vec::Vec::new();
+                heap_phys_pages.push(heap_start_phys);
+                
+                for _ in 1..HEAP_PAGES {
+                    if let Some(page) = PMM.alloc_page() {
+                        heap_phys_pages.push(page);
+                    } else {
+                        arch::serial_println!("[Fanga] Warning: Could not allocate all heap pages");
+                        break;
+                    }
+                }
+                
+                // For simplicity, we'll use the HHDM mapping for the heap
+                let heap_start_virt = hhdm.offset() + heap_start_phys;
+                let actual_heap_size = heap_phys_pages.len() * pmm::PAGE_SIZE;
+                
+                GLOBAL_ALLOCATOR.init(heap_start_virt as usize, actual_heap_size);
+                
+                arch::serial_println!(
+                    "[Fanga] Heap initialized: {} KiB at 0x{:x}",
+                    actual_heap_size / 1024,
+                    heap_start_virt
+                );
+                
+                // Update memory statistics
+                memory_stats::stats().set_total_heap(actual_heap_size);
+                
+                // Test heap allocation
+                arch::serial_println!("[Fanga] Testing heap allocation...");
+                
+                // Test with Vec (requires alloc)
+                let mut test_vec = alloc::vec![1, 2, 3, 4, 5];
+                arch::serial_println!("[Fanga] Created Vec with {} elements", test_vec.len());
+                
+                test_vec.push(6);
+                test_vec.push(7);
+                arch::serial_println!("[Fanga] Vec now has {} elements", test_vec.len());
+                
+                // Test with Box
+                let test_box = alloc::boxed::Box::new(42u64);
+                arch::serial_println!("[Fanga] Created Box with value: {}", *test_box);
+                
+                arch::serial_println!("[Fanga] Heap allocation test completed ✅");
+            } else {
+                arch::serial_println!("[Fanga] Failed to allocate heap memory");
+            }
+        }
+        
+        // Initialize memory regions
+        arch::serial_println!("[Fanga] Initializing memory regions...");
+        
+        static mut MEMORY_REGIONS: memory_regions::MemoryRegionManager = 
+            memory_regions::MemoryRegionManager::new();
+        
+        unsafe {
+            // Add regions based on memory map
+            for entry in mm.entries() {
+                let region_type = match entry.entry_type {
+                    limine::memory_map::EntryType::USABLE => {
+                        memory_regions::MemoryRegionType::Available
+                    }
+                    limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE |
+                    limine::memory_map::EntryType::ACPI_RECLAIMABLE |
+                    limine::memory_map::EntryType::ACPI_NVS |
+                    limine::memory_map::EntryType::BAD_MEMORY |
+                    limine::memory_map::EntryType::RESERVED => {
+                        memory_regions::MemoryRegionType::Reserved
+                    }
+                    limine::memory_map::EntryType::FRAMEBUFFER |
+                    limine::memory_map::EntryType::KERNEL_AND_MODULES => {
+                        memory_regions::MemoryRegionType::KernelData
+                    }
+                    _ => memory_regions::MemoryRegionType::Reserved,
+                };
+                
+                let region = memory_regions::MemoryRegion::new(
+                    entry.base,
+                    entry.length,
+                    region_type,
+                );
+                
+                if !MEMORY_REGIONS.add_region(region) {
+                    arch::serial_println!("[Fanga] Warning: Memory region manager is full");
+                    break;
+                }
+            }
+            
+            arch::serial_println!("[Fanga] Memory regions initialized");
+            arch::serial_println!("[Fanga] Total regions: {}", MEMORY_REGIONS.count_by_type(
+                memory_regions::MemoryRegionType::Available
+            ) + MEMORY_REGIONS.count_by_type(
+                memory_regions::MemoryRegionType::Reserved
+            ));
+            
+            // Print some region statistics
+            for region_type in [
+                memory_regions::MemoryRegionType::Available,
+                memory_regions::MemoryRegionType::Reserved,
+                memory_regions::MemoryRegionType::KernelData,
+            ] {
+                let count = MEMORY_REGIONS.count_by_type(region_type);
+                let size = MEMORY_REGIONS.total_size_by_type(region_type);
+                if count > 0 {
+                    arch::serial_println!(
+                        "[Fanga]   {}: {} regions, {} KiB",
+                        region_type,
+                        count,
+                        size / 1024
+                    );
+                }
+            }
+        }
+        
+        // Update memory statistics
+        let total_mem = unsafe { PMM.total_pages() * pmm::PAGE_SIZE };
+        let used_mem = unsafe { PMM.used_pages() * pmm::PAGE_SIZE };
+        memory_stats::stats().set_total_physical(total_mem);
+        memory_stats::stats().set_used_physical(used_mem);
+        
+        // Print memory statistics
+        arch::serial_println!("[Fanga] Memory Statistics:");
+        arch::serial_println!("[Fanga]   Total Physical: {} MiB", total_mem / (1024 * 1024));
+        arch::serial_println!("[Fanga]   Used Physical:  {} MiB", used_mem / (1024 * 1024));
+        arch::serial_println!("[Fanga]   Free Physical:  {} MiB", 
+            (total_mem - used_mem) / (1024 * 1024)
+        );
         
         arch::serial_println!("[Fanga] PMM test completed ✅");
         
