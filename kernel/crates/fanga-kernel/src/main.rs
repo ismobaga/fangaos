@@ -14,6 +14,7 @@ use limine::BaseRevision;
 use fanga_arch_x86_64 as arch;
 
 mod memory;
+mod io;
 
 /* -------------------------------------------------------------------------- */
 /*                             GLOBAL ALLOCATOR                                */
@@ -55,35 +56,30 @@ static HHDM_REQ: HhdmRequest = HhdmRequest::new();
 static LIMINE_REQUESTS_END: RequestsEndMarker = RequestsEndMarker::new();
 
 /* -------------------------------------------------------------------------- */
-/*                               FRAMEBUFFER DRAW                              */
+/*                          FRAMEBUFFER INITIALIZATION                         */
 /* -------------------------------------------------------------------------- */
 
-fn fb_fill_color(argb: u32) {
+fn init_framebuffer() {
     let fb_resp = FRAMEBUFFER_REQ
         .get_response()
         .expect("No framebuffer response");
     let fb = fb_resp.framebuffers().next().expect("No framebuffer");
 
     let addr = fb.addr() as *mut u8;
-    let pitch = fb.pitch() as usize;
+    let width = fb.width() as usize;
     let height = fb.height() as usize;
+    let pitch = fb.pitch() as usize;
     let bpp = fb.bpp() as usize;
 
-    // We only handle 32bpp here (common in QEMU/UEFI). If not, just do nothing.
+    // We only handle 32bpp here (common in QEMU/UEFI)
     if bpp != 32 {
-        arch::serial_println!("Framebuffer bpp={} (expected 32). Skipping fill.", bpp);
+        arch::serial_println!("Framebuffer bpp={} (expected 32). Console disabled.", bpp);
         return;
     }
 
-    unsafe {
-        for y in 0..height {
-            let row = addr.add(y * pitch) as *mut u32;
-            for x in 0..(pitch / 4) {
-                // Write whole row in pitch units (includes padding)
-                row.add(x).write_volatile(argb);
-            }
-        }
-    }
+    // Initialize the framebuffer console
+    io::framebuffer::init(addr, width, height, pitch, bpp);
+    arch::serial_println!("[Fanga] Framebuffer console initialized: {}x{} @ {}bpp", width, height, bpp);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -94,6 +90,9 @@ fn fb_fill_color(argb: u32) {
 pub extern "C" fn _start() -> ! {
     arch::init();
 
+    // Initialize framebuffer console early
+    init_framebuffer();
+
     if !BASE_REVISION.is_supported() {
         arch::serial_println!("[Fanga] Limine base revision NOT supported");
         loop {
@@ -101,10 +100,6 @@ pub extern "C" fn _start() -> ! {
                 core::arch::asm!("hlt");
             }
         }
-    }
-
-    unsafe {
-        // core::arch::asm!("int3");
     }
 
     arch::serial_println!("[Fanga] entered _start");
@@ -410,26 +405,25 @@ pub extern "C" fn _start() -> ! {
         arch::serial_println!("[Fanga] Cannot initialize PMM: missing memory map or HHDM");
     }
 
-    // Framebuffer test: fill screen with a solid color
-    // (ARGB) 0xFFRRGGBB
-    fb_fill_color(0xFF1E1E2E); // dark-ish
-
-    arch::serial_println!("[Fanga] framebuffer filled ✅");
-
-    // Uncomment the following to test double fault handling:
-    // This will trigger a stack overflow which causes a page fault,
-    // and since the stack is corrupted, it will then trigger a double fault.
-    // The double fault handler uses IST so it won't cascade into a triple fault.
-    arch::serial_println!("[Fanga] Testing double fault handler...");
-    // unsafe {
-    //     fn trigger_stack_overflow() {
-    //         // Infinite recursion to overflow the stack
-    //         let x = [0u8; 4096];  // Use some stack space
-    //         core::hint::black_box(&x); // Prevent optimization
-    //         trigger_stack_overflow();
-    //     }
-    //     trigger_stack_overflow();
-    // }
+    // Test the new console and logging system
+    console_println!("===========================================");
+    console_println!("    FangaOS - Operating System Kernel");
+    console_println!("===========================================");
+    console_println!();
+    
+    log_info!("Console system initialized");
+    log_info!("Logging framework active");
+    
+    // Test different log levels
+    log_debug!("Debug message example");
+    log_info!("Info message example");
+    log_warn!("Warning message example");
+    log_error!("Error message example");
+    
+    console_println!();
+    console_println!("Keyboard input is now active!");
+    console_println!("Type something and see it appear in serial output...");
+    console_println!();
 
     loop {
         // core::hint::spin_loop();
@@ -445,12 +439,11 @@ pub extern "C" fn _start() -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    arch::serial_println!("");
-    arch::serial_println!("!!! KERNEL PANIC !!!");
-    arch::serial_println!("{}", info);
+    console_println!();
+    console_println!("!!! KERNEL PANIC !!!");
+    console_println!("{}", info);
 
     loop {
-        // core::hint::spin_loop();
         unsafe {
             core::arch::asm!("hlt");
         }
