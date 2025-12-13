@@ -33,8 +33,8 @@ run: iso
 	qemu-system-x86_64 \
 		-m 512M \
 		-cdrom $(ISO) \
-		-serial stdio 
-#		-display none
+		-serial stdio \
+		-display none
 
 clean:
 	rm -rf build
