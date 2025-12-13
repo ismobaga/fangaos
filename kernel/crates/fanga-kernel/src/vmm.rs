@@ -209,12 +209,19 @@ impl PageTableMapper {
     /// Creates a new page table mapper with a new PML4
     ///
     /// # Safety
-    /// The PMM must be properly initialized
+    /// The caller must ensure that:
+    /// - The PMM is properly initialized and can allocate pages
+    /// - The HHDM offset is valid and maps to accessible kernel memory
+    /// - The allocated page is properly cleared and won't be accessed by other code
     pub unsafe fn new(pmm: &mut PhysicalMemoryManager, hhdm_offset: u64) -> Option<Self> {
         // Allocate a page for PML4
         let pml4_phys = pmm.alloc_page()?;
         
         // Clear the PML4
+        // SAFETY: The physical address is valid (just allocated by PMM) and
+        // the HHDM offset ensures it maps to a valid kernel virtual address.
+        // The pointer is properly aligned (PMM returns page-aligned addresses)
+        // and points to valid memory.
         let pml4_virt = (hhdm_offset + pml4_phys) as *mut PageTable;
         (*pml4_virt).clear();
 
@@ -429,6 +436,15 @@ impl PageTableMapper {
     }
 
     /// Translates a virtual address to a physical address
+    ///
+    /// Returns the physical address if the virtual address is mapped, or None otherwise
+    ///
+    /// # Safety
+    /// This function performs unsafe operations:
+    /// - Dereferences raw pointers to page tables
+    /// - The physical addresses are converted to virtual using HHDM
+    /// - Each pointer is only dereferenced after checking the present bit
+    /// - The page table hierarchy must be valid and not concurrently modified
     pub fn translate(&self, virt_addr: u64) -> Option<u64> {
         // Get indices
         let pml4_idx = pml4_index(virt_addr);
@@ -439,6 +455,11 @@ impl PageTableMapper {
 
         unsafe {
             // Walk the page table hierarchy
+            // SAFETY: Each pointer dereference is safe because:
+            // 1. The physical address comes from a valid page table entry
+            // 2. We check is_present() before dereferencing
+            // 3. The HHDM mapping ensures valid virtual addresses
+            // 4. Page tables are properly aligned (4KiB)
             let pml4 = &*(self.phys_to_virt(self.pml4_phys) as *const PageTable);
             if !pml4.entry(pml4_idx).is_present() {
                 return None;
@@ -468,6 +489,16 @@ impl PageTableMapper {
     }
 
     /// Flushes the TLB entry for a virtual address
+    ///
+    /// Uses the INVLPG instruction to invalidate the TLB entry for the given address.
+    /// This ensures that subsequent accesses use the updated page table entry.
+    ///
+    /// # Safety
+    /// This inline assembly is safe because:
+    /// - INVLPG is a privileged instruction that only affects TLB entries
+    /// - It doesn't modify any registers or flags
+    /// - The instruction only takes the virtual address as input
+    /// - The kernel is running in ring 0 with proper privileges
     #[inline]
     fn flush_tlb(virt_addr: u64) {
         unsafe {
