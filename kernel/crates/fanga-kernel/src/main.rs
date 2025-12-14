@@ -199,19 +199,22 @@ pub extern "C" fn _start() -> ! {
         const HEAP_PAGES: usize = HEAP_SIZE / memory::PAGE_SIZE;
         
         unsafe {
-            // Allocate contiguous physical pages for the heap
-            // We need to find a contiguous region, or just use the first page
-            // and allocate more pages (though they may not be contiguous in physical memory,
-            // they will be contiguous in virtual memory via HHDM)
+            // Allocate multiple physical pages for the heap to ensure sufficient space
+            // for scheduler and other kernel structures
+            const HEAP_PAGES: usize = 3; // Allocate 3 pages (12KB) for the heap
             
             if let Some(heap_start_phys) = PMM.alloc_page() {
-                // For simplicity, we'll use just the first allocated page to start
-                // In a real kernel, we'd want to allocate all pages first
-                // But to avoid the chicken-egg problem with Vec, we'll start with one page
+                // Allocate additional contiguous pages for the heap
+                for i in 1..HEAP_PAGES {
+                    if PMM.alloc_page().is_none() {
+                        arch::serial_println!("[Fanga] Warning: Could only allocate {} heap pages", i);
+                        break;
+                    }
+                }
                 
-                // For simplicity, we'll use the HHDM mapping for the heap
+                // Use the HHDM mapping for the heap (contiguous virtual memory)
                 let heap_start_virt = hhdm.offset() + heap_start_phys;
-                let initial_heap_size = memory::PAGE_SIZE;
+                let initial_heap_size = memory::PAGE_SIZE * HEAP_PAGES;
                 
                 GLOBAL_ALLOCATOR.init(heap_start_virt as usize, initial_heap_size);
                 
