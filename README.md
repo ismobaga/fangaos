@@ -30,9 +30,18 @@ A modern x86_64 operating system kernel written in Rust.
 
 - **System Calls**
   - SYSCALL/SYSRET instruction support
-  - Basic syscalls (read, write, exit)
+  - Basic syscalls (read, write, exit, fork, exec)
+  - IPC syscalls (pipe, kill, shmget, shmat, shmdt, shmctl, msgget, msgsnd, msgrcv)
   - Syscall argument validation
   - Error handling and return codes
+
+- **Inter-Process Communication (IPC)**
+  - Message queues with FIFO ordering
+  - Pipes for unidirectional data streams
+  - Shared memory segments with reference counting
+  - POSIX-like signals for asynchronous notifications
+  - Synchronization primitives (mutex, semaphore)
+  - Comprehensive IPC syscall interface
 
 - **I/O Subsystem**
   - Framebuffer console
@@ -169,6 +178,7 @@ fangaos/
 - [Timer Management](docs/TIMER_MANAGEMENT.md) - Timer and time management subsystem
 - [Input/Output](docs/INPUT_OUTPUT.md) - I/O subsystem design
 - [System Calls](docs/SYSTEM_CALLS.md) - System call interface
+- [Inter-Process Communication](docs/IPC.md) - IPC mechanisms and usage
 - [Interactive Shell](docs/SHELL.md) - Shell/REPL documentation
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
@@ -248,6 +258,12 @@ FangaOS is currently in active development. Core features implemented:
 - ✅ Preemptive scheduling (time-slice based, priority queues)
 - ✅ Basic I/O (framebuffer, serial, keyboard)
 - ✅ System calls (syscall/sysret interface)
+- ✅ Inter-Process Communication (IPC)
+  - ✅ Message queues
+  - ✅ Pipes (anonymous)
+  - ✅ Shared memory
+  - ✅ Signals
+  - ✅ Synchronization primitives (mutex, semaphore)
 - ✅ Comprehensive test suite
 - ✅ CI/CD pipeline
 - ✅ Interactive shell/REPL with command history and tab completion

@@ -7,7 +7,10 @@
 // Re-export syscall constants and error codes from architecture layer
 pub use fanga_arch_x86_64::syscall::{
     SYS_READ, SYS_WRITE, SYS_EXIT, SYS_FORK, SYS_EXEC,
-    EINVAL, EBADF, ENOMEM, ENOSYS, EFAULT, EACCES,
+    SYS_PIPE, SYS_KILL, 
+    SYS_SHMGET, SYS_SHMAT, SYS_SHMDT, SYS_SHMCTL,
+    SYS_MSGGET, SYS_MSGSND, SYS_MSGRCV,
+    EINVAL, EBADF, ENOMEM, ENOSYS, EFAULT, EACCES, EPERM, ESRCH,
 };
 
 /// Result type for system calls
@@ -54,6 +57,17 @@ mod tests {
         assert_eq!(SYS_EXIT, 60);
         assert_eq!(SYS_FORK, 57);
         assert_eq!(SYS_EXEC, 59);
+        
+        // IPC syscalls
+        assert_eq!(SYS_PIPE, 22);
+        assert_eq!(SYS_KILL, 62);
+        assert_eq!(SYS_SHMGET, 29);
+        assert_eq!(SYS_SHMAT, 30);
+        assert_eq!(SYS_SHMDT, 67);
+        assert_eq!(SYS_SHMCTL, 31);
+        assert_eq!(SYS_MSGGET, 68);
+        assert_eq!(SYS_MSGSND, 69);
+        assert_eq!(SYS_MSGRCV, 70);
     }
 
     #[test]
@@ -64,5 +78,7 @@ mod tests {
         assert!(ENOSYS < 0);
         assert!(EFAULT < 0);
         assert!(EACCES < 0);
+        assert!(EPERM < 0);
+        assert!(ESRCH < 0);
     }
 }

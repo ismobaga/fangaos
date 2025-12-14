@@ -25,6 +25,11 @@ pub mod examples;
 pub use tcb::{Task, TaskId, TaskState, TaskPriority};
 pub use scheduler::Scheduler;
 pub use context::TaskContext;
-pub use ipc::{MessageQueue, Message};
+pub use ipc::{
+    MessageQueue, Message, 
+    Pipe, SharedMemory, 
+    Signal, SignalHandler,
+    Semaphore, TaskMutex,
+};
 pub use process::{ProcessManager, create_process, fork, exit};
 pub use time::{delay_ms, delay_us, sleep_ms, uptime_ms, uptime_secs, timer_ticks};
