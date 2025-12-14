@@ -6,8 +6,9 @@
 use crate::task::scheduler;
 use core::sync::atomic::{AtomicU64, Ordering};
 
-/// Time slice in timer ticks (default ~55ms with 18.2 Hz PIT)
-pub const TIME_SLICE: u64 = 1;
+/// Time slice in timer ticks
+/// With 100 Hz timer (10ms per tick), TIME_SLICE=10 means 100ms per task
+pub const TIME_SLICE: u64 = 10;
 
 /// Timer tick counter (atomic for thread-safety)
 static TICK_COUNTER: AtomicU64 = AtomicU64::new(0);

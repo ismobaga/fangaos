@@ -424,7 +424,12 @@ pub extern "C" fn _start() -> ! {
     arch::serial_println!("[Fanga] Initializing task scheduler...");
     task::scheduler::init();
     task::process::init();
+    
+    // Initialize timer bridge for preemptive scheduling
+    task::timer_bridge::init();
     arch::serial_println!("[Fanga] Task scheduler initialized ✅");
+    arch::serial_println!("[Fanga] Preemptive scheduling enabled (time slice: {}ms)", 
+        task::sched_timer::TIME_SLICE * 10);
     
     // Demonstrate process management system
     arch::serial_println!("");

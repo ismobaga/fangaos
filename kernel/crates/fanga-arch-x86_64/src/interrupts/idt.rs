@@ -337,13 +337,32 @@ extern "x86-interrupt" fn control_protection_handler(frame: InterruptStackFrame,
 
 static mut TIMER_TICKS: u64 = 0;
 
+/// Type alias for timer interrupt callback
+pub type TimerCallback = fn();
+
+/// Optional callback to invoke on each timer tick
+static mut TIMER_CALLBACK: Option<TimerCallback> = None;
+
+/// Register a callback to be invoked on each timer interrupt
+///
+/// # Safety
+/// The caller must ensure that the callback:
+/// - Is safe to call from interrupt context
+/// - Does not perform blocking operations
+/// - Completes quickly to avoid blocking other interrupts
+pub unsafe fn set_timer_callback(callback: TimerCallback) {
+    TIMER_CALLBACK = Some(callback);
+}
+
 extern "x86-interrupt" fn timer_irq_handler(_frame: InterruptStackFrame) {
     unsafe {
         TIMER_TICKS = TIMER_TICKS.wrapping_add(1);
-        // Print every ~18.2 seconds (PIT default frequency)
-        if TIMER_TICKS % (18 * 1000) == 0 {
-            // serial_println!("[IRQ] Timer tick: {}", TIMER_TICKS);
+        
+        // Call registered callback if present
+        if let Some(callback) = TIMER_CALLBACK {
+            callback();
         }
+        
         pic::eoi(IRQ_TIMER);
     }
 }
@@ -407,6 +426,10 @@ pub fn init() {
         pic::remap(PIC1_OFFSET, PIC2_OFFSET);
         // Mask bits: 1 = masked(disabled). Enable IRQ0 & IRQ1 => mask others.
         pic::set_masks(0b1111_1100, 0b1111_1111);
+        
+        // Initialize PIT timer
+        crate::interrupts::pit::init(crate::interrupts::pit::PIT_DEFAULT_FREQ);
+        serial_println!("[PIT] Configured to {} Hz", crate::interrupts::pit::PIT_DEFAULT_FREQ);
 
         // IRQ handlers (after remap)
         IDT[(PIC1_OFFSET + IRQ_TIMER) as usize].set_handler(timer_irq_handler as u64);
@@ -430,4 +453,18 @@ pub fn init() {
 /// Get the current timer tick count
 pub fn timer_ticks() -> u64 {
     unsafe { TIMER_TICKS }
+}
+
+/// Get system uptime in milliseconds
+/// 
+/// Based on the configured PIT frequency (100 Hz = 10ms per tick)
+pub fn uptime_ms() -> u64 {
+    let ticks = timer_ticks();
+    // With 100 Hz timer, each tick is 10ms
+    ticks * 10
+}
+
+/// Get system uptime in seconds
+pub fn uptime_secs() -> u64 {
+    uptime_ms() / 1000
 }
