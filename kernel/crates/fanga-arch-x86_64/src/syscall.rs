@@ -231,10 +231,14 @@ fn sys_pipe(pipefd: *mut i32) -> i64 {
     // - pipefd[0] = read end, pipefd[1] = write end
     // - Return 0 on success
     
+    // Dummy file descriptors (placeholder until full implementation)
+    const DUMMY_READ_FD: i32 = 3;
+    const DUMMY_WRITE_FD: i32 = 4;
+    
     // For now, just return success with dummy file descriptors
     unsafe {
-        *pipefd.offset(0) = 3; // Read end
-        *pipefd.offset(1) = 4; // Write end
+        *pipefd.offset(0) = DUMMY_READ_FD;
+        *pipefd.offset(1) = DUMMY_WRITE_FD;
     }
     
     0

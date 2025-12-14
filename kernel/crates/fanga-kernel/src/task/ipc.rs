@@ -560,39 +560,44 @@ impl SignalHandler {
         }
     }
     
+    /// Helper to get the bit mask for a signal
+    fn signal_bit(signal: Signal) -> u32 {
+        1u32 << (signal.num() as u32)
+    }
+    
     /// Send a signal
     pub fn send(&mut self, signal: Signal) {
-        let bit = 1u32 << (signal.num() as u32);
+        let bit = Self::signal_bit(signal);
         self.pending |= bit;
     }
     
     /// Check if a signal is pending
     pub fn is_pending(&self, signal: Signal) -> bool {
-        let bit = 1u32 << (signal.num() as u32);
+        let bit = Self::signal_bit(signal);
         (self.pending & bit) != 0
     }
     
     /// Check if a signal is blocked
     pub fn is_blocked(&self, signal: Signal) -> bool {
-        let bit = 1u32 << (signal.num() as u32);
+        let bit = Self::signal_bit(signal);
         (self.blocked & bit) != 0
     }
     
     /// Block a signal
     pub fn block(&mut self, signal: Signal) {
-        let bit = 1u32 << (signal.num() as u32);
+        let bit = Self::signal_bit(signal);
         self.blocked |= bit;
     }
     
     /// Unblock a signal
     pub fn unblock(&mut self, signal: Signal) {
-        let bit = 1u32 << (signal.num() as u32);
+        let bit = Self::signal_bit(signal);
         self.blocked &= !bit;
     }
     
     /// Clear a pending signal
     pub fn clear(&mut self, signal: Signal) {
-        let bit = 1u32 << (signal.num() as u32);
+        let bit = Self::signal_bit(signal);
         self.pending &= !bit;
     }
     
@@ -603,9 +608,12 @@ impl SignalHandler {
             return None;
         }
         
-        // Find the first set bit
-        let signal_num = unblocked_pending.trailing_zeros() as u8;
-        Signal::from_num(signal_num)
+        // Find the first set bit (0-indexed)
+        let bit_pos = unblocked_pending.trailing_zeros() as u8;
+        
+        // Signal numbers use the bit position directly
+        // (bit 1 = SIGHUP (1), bit 2 = SIGINT (2), etc.)
+        Signal::from_num(bit_pos)
     }
     
     /// Check if there are any pending unblocked signals
@@ -856,6 +864,32 @@ mod tests {
         
         let next = handler.next_unblocked();
         assert_eq!(next, Some(Signal::SIGUSR1));
+    }
+
+    #[test]
+    fn test_signal_priority() {
+        let mut handler = SignalHandler::new();
+        
+        // Send multiple signals
+        handler.send(Signal::SIGTERM); // 15
+        handler.send(Signal::SIGINT);  // 2
+        handler.send(Signal::SIGHUP);  // 1
+        
+        // Should get SIGHUP first (lowest signal number)
+        let next = handler.next_unblocked();
+        assert_eq!(next, Some(Signal::SIGHUP));
+        
+        handler.clear(Signal::SIGHUP);
+        
+        // Should get SIGINT next
+        let next = handler.next_unblocked();
+        assert_eq!(next, Some(Signal::SIGINT));
+        
+        handler.clear(Signal::SIGINT);
+        
+        // Should get SIGTERM last
+        let next = handler.next_unblocked();
+        assert_eq!(next, Some(Signal::SIGTERM));
     }
 
     #[test]
