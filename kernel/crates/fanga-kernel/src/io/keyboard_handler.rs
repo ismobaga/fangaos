@@ -5,6 +5,7 @@
 
 use fanga_arch_x86_64::keyboard::{KeyCode, KeyEvent};
 use crate::io::{framebuffer, line_editor};
+use crate::shell;
 
 /// Handle a keyboard event
 pub fn handle_key_event(event: KeyEvent, kbd: &fanga_arch_x86_64::keyboard::Keyboard) {
@@ -104,6 +105,18 @@ fn handle_key_press(keycode: KeyCode, kbd: &fanga_arch_x86_64::keyboard::Keyboar
             // Submit the line
             handle_enter();
         }
+        KeyCode::Up => {
+            // Navigate to previous command in history
+            handle_history_prev();
+        }
+        KeyCode::Down => {
+            // Navigate to next command in history
+            handle_history_next();
+        }
+        KeyCode::Tab => {
+            // Tab completion
+            handle_tab_completion();
+        }
         _ => {
             // Ignore other keys
         }
@@ -113,26 +126,48 @@ fn handle_key_press(keycode: KeyCode, kbd: &fanga_arch_x86_64::keyboard::Keyboar
 /// Redraw the current line in the framebuffer
 fn redraw_line(editor: &line_editor::LineEditor) {
     let mut fb = framebuffer::framebuffer();
-    let start_col = 0; // For now, assume lines start at column 0
+    
+    // Get prompt length
+    let prompt_len = if shell::is_initialized() {
+        let shell_guard = shell::shell();
+        if let Some(shell) = shell_guard.as_ref() {
+            shell.prompt().len()
+        } else {
+            0
+        }
+    } else {
+        0
+    };
     
     // Redraw the entire line
-    fb.redraw_line(start_col, editor.buffer());
+    fb.redraw_line(0, editor.buffer());
     
     // Update cursor position
     let row = fb.get_row();
-    fb.set_position(start_col + editor.cursor(), row);
+    fb.set_position(prompt_len + editor.cursor(), row);
     fb.draw_cursor();
 }
 
 /// Update cursor position without redrawing the whole line
 fn update_cursor(editor: &line_editor::LineEditor) {
     let mut fb = framebuffer::framebuffer();
-    let start_col = 0;
+    
+    // Get prompt length
+    let prompt_len = if shell::is_initialized() {
+        let shell_guard = shell::shell();
+        if let Some(shell) = shell_guard.as_ref() {
+            shell.prompt().len()
+        } else {
+            0
+        }
+    } else {
+        0
+    };
     
     // Redraw line to clear old cursor and show new position
-    fb.redraw_line(start_col, editor.buffer());
+    fb.redraw_line(0, editor.buffer());
     let row = fb.get_row();
-    fb.set_position(start_col + editor.cursor(), row);
+    fb.set_position(prompt_len + editor.cursor(), row);
     fb.draw_cursor();
 }
 
@@ -187,16 +222,136 @@ fn handle_enter() {
     // Echo newline
     fb.write_string("\n");
     
-    // Process the line (for now, just echo it back)
-    if !line.is_empty() {
-        fb.write_string("You entered: ");
-        fb.write_string(&line);
-        fb.write_string("\n");
+    // Process the line through the shell
+    if shell::is_initialized() {
+        // Add to history
+        if !line.trim().is_empty() {
+            let mut history_guard = shell::history::history();
+            if let Some(history) = history_guard.as_mut() {
+                history.add(line.clone());
+            }
+        }
+        
+        // Execute the command
+        if !line.trim().is_empty() {
+            let mut shell_guard = shell::shell();
+            if let Some(shell) = shell_guard.as_mut() {
+                if let Err(err) = shell.execute(&line) {
+                    fb.write_string("Error: ");
+                    fb.write_string(err);
+                    fb.write_string("\n");
+                }
+            }
+        }
+        
+        // Show prompt for next command
+        let shell_guard = shell::shell();
+        if let Some(shell) = shell_guard.as_ref() {
+            if shell.is_running() {
+                fb.write_string(shell.prompt());
+            }
+        }
     }
     
     // Clear the editor for next line
     let mut editor_guard = line_editor::editor();
     if let Some(editor) = editor_guard.as_mut() {
         editor.clear();
+    }
+}
+
+/// Handle Up arrow (previous command in history)
+fn handle_history_prev() {
+    let mut history_guard = shell::history::history();
+    if let Some(history) = history_guard.as_mut() {
+        if let Some(cmd) = history.prev() {
+            // Replace current line with historical command
+            let mut editor_guard = line_editor::editor();
+            if let Some(editor) = editor_guard.as_mut() {
+                editor.clear();
+                for ch in cmd.chars() {
+                    editor.insert_char(ch);
+                }
+                redraw_line(editor);
+            }
+        }
+    }
+}
+
+/// Handle Down arrow (next command in history)
+fn handle_history_next() {
+    let mut history_guard = shell::history::history();
+    if let Some(history) = history_guard.as_mut() {
+        if let Some(cmd) = history.next() {
+            // Replace current line with historical command
+            let mut editor_guard = line_editor::editor();
+            if let Some(editor) = editor_guard.as_mut() {
+                editor.clear();
+                for ch in cmd.chars() {
+                    editor.insert_char(ch);
+                }
+                redraw_line(editor);
+            }
+        }
+    }
+}
+
+/// Handle Tab key (command completion)
+fn handle_tab_completion() {
+    // Get current line
+    let current_line = {
+        let editor_guard = line_editor::editor();
+        if let Some(editor) = editor_guard.as_ref() {
+            editor.get_line()
+        } else {
+            return;
+        }
+    };
+    
+    // Only complete if we're at the beginning (completing command name)
+    let trimmed = current_line.trim();
+    if trimmed.contains(' ') {
+        // Already has arguments, don't complete
+        return;
+    }
+    
+    // Try to complete
+    if let Some(completed) = shell::completion::complete_single(trimmed) {
+        // Single match - complete it
+        let mut editor_guard = line_editor::editor();
+        if let Some(editor) = editor_guard.as_mut() {
+            editor.clear();
+            for ch in completed.chars() {
+                editor.insert_char(ch);
+            }
+            redraw_line(editor);
+        }
+    } else {
+        // Multiple or no matches - show possibilities
+        let matches = shell::completion::complete(trimmed);
+        if !matches.is_empty() {
+            let mut fb = framebuffer::framebuffer();
+            fb.write_string("\n");
+            for cmd in matches {
+                fb.write_string(&cmd);
+                fb.write_string("  ");
+            }
+            fb.write_string("\n");
+            
+            // Show prompt and current line again
+            let shell_guard = shell::shell();
+            if let Some(shell) = shell_guard.as_ref() {
+                fb.write_string(shell.prompt());
+            }
+            
+            let editor_guard = line_editor::editor();
+            if let Some(editor) = editor_guard.as_ref() {
+                for ch in editor.buffer() {
+                    let mut s = alloc::string::String::new();
+                    s.push(*ch);
+                    fb.write_string(&s);
+                }
+            }
+        }
     }
 }
