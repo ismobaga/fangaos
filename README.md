@@ -31,6 +31,15 @@ A modern x86_64 operating system kernel written in Rust.
   - Serial port communication
   - Keyboard input
   - Custom font rendering
+  - Interactive shell/REPL
+
+- **Interactive Shell**
+  - Command parser with argument support
+  - Built-in commands (help, clear, echo, memory, ps, exit)
+  - Command history with up/down arrow navigation
+  - Tab completion for command names
+  - Customizable prompt
+  - Line editing (cursor movement, backspace, delete)
 
 - **Architecture Support**
   - x86_64 primary architecture
@@ -151,6 +160,7 @@ fangaos/
 - [Interrupt Handling](docs/INTERRUPT_HANDLING.md) - Interrupt architecture
 - [Input/Output](docs/INPUT_OUTPUT.md) - I/O subsystem design
 - [System Calls](docs/SYSTEM_CALLS.md) - System call interface
+- [Interactive Shell](docs/SHELL.md) - Shell/REPL documentation
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
 ## Development
@@ -229,6 +239,7 @@ FangaOS is currently in active development. Core features implemented:
 - ✅ System calls (syscall/sysret interface)
 - ✅ Comprehensive test suite
 - ✅ CI/CD pipeline
+- ✅ Interactive shell/REPL with command history and tab completion
 - 🚧 Process management (in progress)
 - 🚧 File system (planned)
 - 🚧 Networking (planned)
