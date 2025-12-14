@@ -20,9 +20,18 @@ const RFLAGS_DF: u64 = 1 << 10; // Direction Flag
 /// Syscall numbers
 pub const SYS_READ: u64 = 0;
 pub const SYS_WRITE: u64 = 1;
+pub const SYS_OPEN: u64 = 2;
+pub const SYS_CLOSE: u64 = 3;
+pub const SYS_LSEEK: u64 = 8;
 pub const SYS_EXIT: u64 = 60;
 pub const SYS_FORK: u64 = 57;
 pub const SYS_EXEC: u64 = 59;
+
+// Directory syscalls
+pub const SYS_MKDIR: u64 = 83;
+pub const SYS_RMDIR: u64 = 84;
+pub const SYS_GETDENTS: u64 = 78;
+pub const SYS_UNLINK: u64 = 87;
 
 // IPC syscalls
 pub const SYS_PIPE: u64 = 22;
@@ -44,6 +53,11 @@ pub const EFAULT: i64 = -14;  // Bad address
 pub const EACCES: i64 = -13;  // Permission denied
 pub const EPERM: i64 = -1;    // Operation not permitted
 pub const ESRCH: i64 = -3;    // No such process
+pub const ENOENT: i64 = -2;   // No such file or directory
+pub const EEXIST: i64 = -17;  // File exists
+pub const ENOTDIR: i64 = -20; // Not a directory
+pub const EISDIR: i64 = -21;  // Is a directory
+pub const ENOTEMPTY: i64 = -39; // Directory not empty
 
 /// Write a value to a Model Specific Register
 #[inline]
@@ -105,9 +119,16 @@ extern "C" fn syscall_handler(
     match syscall_number {
         SYS_READ => sys_read(arg1 as i32, arg2 as *mut u8, arg3 as usize),
         SYS_WRITE => sys_write(arg1 as i32, arg2 as *const u8, arg3 as usize),
+        SYS_OPEN => sys_open(arg1 as *const u8, arg2 as i32, arg3 as i32),
+        SYS_CLOSE => sys_close(arg1 as i32),
+        SYS_LSEEK => sys_lseek(arg1 as i32, arg2 as i64, arg3 as i32),
         SYS_EXIT => sys_exit(arg1 as i32),
         SYS_FORK => sys_fork(),
         SYS_EXEC => sys_exec(arg1 as *const u8, arg2 as *const *const u8),
+        SYS_MKDIR => sys_mkdir(arg1 as *const u8, arg2 as i32),
+        SYS_RMDIR => sys_rmdir(arg1 as *const u8),
+        SYS_GETDENTS => sys_getdents(arg1 as i32, arg2 as *mut u8, arg3 as usize),
+        SYS_UNLINK => sys_unlink(arg1 as *const u8),
         SYS_PIPE => sys_pipe(arg1 as *mut i32),
         SYS_KILL => sys_kill(arg1 as i32, arg2 as i32),
         SYS_SHMGET => sys_shmget(arg1 as i32, arg2 as usize, arg3 as i32),
@@ -169,6 +190,82 @@ fn sys_write(fd: i32, buf: *const u8, count: usize) -> i64 {
     }
 
     count as i64
+}
+
+/// sys_open - Open a file
+fn sys_open(pathname: *const u8, _flags: i32, _mode: i32) -> i64 {
+    if pathname.is_null() {
+        return EFAULT;
+    }
+    crate::serial_println!("[SYSCALL] sys_open() - stub");
+    // TODO: Implement with VFS
+    ENOSYS
+}
+
+/// sys_close - Close a file descriptor
+fn sys_close(fd: i32) -> i64 {
+    if fd < 0 {
+        return EBADF;
+    }
+    crate::serial_println!("[SYSCALL] sys_close() - stub");
+    // TODO: Implement with VFS
+    ENOSYS
+}
+
+/// sys_lseek - Seek in a file
+fn sys_lseek(fd: i32, _offset: i64, whence: i32) -> i64 {
+    if fd < 0 {
+        return EBADF;
+    }
+    if whence < 0 || whence > 2 {
+        return EINVAL;
+    }
+    crate::serial_println!("[SYSCALL] sys_lseek() - stub");
+    // TODO: Implement with VFS
+    ENOSYS
+}
+
+/// sys_mkdir - Create a directory
+fn sys_mkdir(pathname: *const u8, _mode: i32) -> i64 {
+    if pathname.is_null() {
+        return EFAULT;
+    }
+    crate::serial_println!("[SYSCALL] sys_mkdir() - stub");
+    // TODO: Implement with VFS
+    ENOSYS
+}
+
+/// sys_rmdir - Remove a directory
+fn sys_rmdir(pathname: *const u8) -> i64 {
+    if pathname.is_null() {
+        return EFAULT;
+    }
+    crate::serial_println!("[SYSCALL] sys_rmdir() - stub");
+    // TODO: Implement with VFS
+    ENOSYS
+}
+
+/// sys_getdents - Get directory entries
+fn sys_getdents(fd: i32, dirp: *mut u8, _count: usize) -> i64 {
+    if fd < 0 {
+        return EBADF;
+    }
+    if dirp.is_null() {
+        return EFAULT;
+    }
+    crate::serial_println!("[SYSCALL] sys_getdents() - stub");
+    // TODO: Implement with VFS
+    ENOSYS
+}
+
+/// sys_unlink - Remove a file
+fn sys_unlink(pathname: *const u8) -> i64 {
+    if pathname.is_null() {
+        return EFAULT;
+    }
+    crate::serial_println!("[SYSCALL] sys_unlink() - stub");
+    // TODO: Implement with VFS
+    ENOSYS
 }
 
 /// sys_exit - Terminate the current process
