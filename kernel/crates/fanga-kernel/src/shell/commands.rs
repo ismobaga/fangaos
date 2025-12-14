@@ -127,7 +127,7 @@ fn cmd_ps() -> Result<(), &'static str> {
     fb.write_string("  ----  ------------------  ----------  --------\n");
     
     // Access the scheduler
-    let mut scheduler = task::scheduler::scheduler();
+    let scheduler = task::scheduler::scheduler();
     
     // Get task count
     let task_count = scheduler.total_task_count();
