@@ -48,9 +48,13 @@ impl Scheduler {
     
     /// Initialize the scheduler with capacity
     pub fn init(&mut self) {
-        self.tasks = Vec::with_capacity(MAX_TASKS);
-        for _ in 0..MAX_TASKS {
-            self.tasks.push(None);
+        // Clear and reserve space for tasks
+        self.tasks.clear();
+        if MAX_TASKS > 0 {
+            self.tasks.reserve(MAX_TASKS);
+            for _ in 0..MAX_TASKS {
+                self.tasks.push(None);
+            }
         }
     }
     
@@ -203,17 +207,16 @@ impl Scheduler {
 }
 
 /// Global scheduler instance
-static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
+static SCHEDULER: Mutex<Scheduler> = Mutex::new(Scheduler::new());
 
 /// Initialize the global scheduler
 pub fn init() {
-    let mut scheduler = Scheduler::new();
-    scheduler.init();
-    *SCHEDULER.lock() = Some(scheduler);
+    let mut scheduler_guard = SCHEDULER.lock();
+    scheduler_guard.init();
 }
 
 /// Get a reference to the global scheduler
-pub fn scheduler() -> spin::MutexGuard<'static, Option<Scheduler>> {
+pub fn scheduler() -> spin::MutexGuard<'static, Scheduler> {
     SCHEDULER.lock()
 }
 

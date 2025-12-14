@@ -42,19 +42,17 @@ pub fn handle_exit(task_id: TaskId, exit_code: i32) -> ! {
     
     // Schedule next task
     let mut scheduler_guard = task::scheduler::scheduler();
-    if let Some(scheduler) = scheduler_guard.as_mut() {
-        let (_, next, _) = scheduler.schedule();
+    let (_, next, _) = scheduler_guard.schedule();
+    
+    if let Some(next_task_id) = next {
+        // In a real OS, we would context switch here
+        // For now, we'll just log and halt
+        drop(scheduler_guard);
         
-        if let Some(next_task_id) = next {
-            // In a real OS, we would context switch here
-            // For now, we'll just log and halt
-            drop(scheduler_guard);
-            
-            fanga_arch_x86_64::serial_println!(
-                "[SYSCALL] Would switch to task {:?} after exit",
-                next_task_id
-            );
-        }
+        fanga_arch_x86_64::serial_println!(
+            "[SYSCALL] Would switch to task {:?} after exit",
+            next_task_id
+        );
     }
     
     // No more tasks to run, halt
@@ -71,7 +69,7 @@ pub fn handle_exit(task_id: TaskId, exit_code: i32) -> ! {
 /// The current task ID, or None if no task is running
 pub fn get_current_task() -> Option<TaskId> {
     let scheduler_guard = task::scheduler::scheduler();
-    scheduler_guard.as_ref().and_then(|s| s.current_task())
+    scheduler_guard.current_task()
 }
 
 #[cfg(test)]

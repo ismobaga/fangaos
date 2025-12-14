@@ -58,8 +58,7 @@ impl ProcessManager {
         
         // Add to scheduler
         let mut scheduler_guard = scheduler::scheduler();
-        let scheduler = scheduler_guard.as_mut().ok_or("Scheduler not initialized")?;
-        scheduler.add_task(task)
+        scheduler_guard.add_task(task)
     }
     
     /// Fork the current process (create a copy)
@@ -70,10 +69,9 @@ impl ProcessManager {
     /// - On error: Err
     pub fn fork_process(&mut self, parent_id: TaskId) -> Result<TaskId, &'static str> {
         let mut scheduler_guard = scheduler::scheduler();
-        let scheduler = scheduler_guard.as_mut().ok_or("Scheduler not initialized")?;
         
         // Get parent task
-        let parent = scheduler.get_task(parent_id).ok_or("Parent task not found")?;
+        let parent = scheduler_guard.get_task(parent_id).ok_or("Parent task not found")?;
         
         // Duplicate the parent task
         let mut child = Task::new(
@@ -103,7 +101,7 @@ impl ProcessManager {
         self.next_pid += 1;
         
         // Add child to scheduler
-        let child_id = scheduler.add_task(child)?;
+        let child_id = scheduler_guard.add_task(child)?;
         
         Ok(child_id)
     }
@@ -113,12 +111,11 @@ impl ProcessManager {
     /// # Arguments
     /// * `task_id` - The task to terminate
     /// * `exit_code` - The exit code
-    pub fn exit_process(&mut self, task_id: TaskId, exit_code: i32) -> Result<(), &'static str> {
+    pub fn exit_process(&mut self, task_id: TaskId, _exit_code: i32) -> Result<(), &'static str> {
         let mut scheduler_guard = scheduler::scheduler();
-        let scheduler = scheduler_guard.as_mut().ok_or("Scheduler not initialized")?;
         
         // Mark task as terminated
-        scheduler.terminate_task(task_id)?;
+        scheduler_guard.terminate_task(task_id)?;
         
         // In a real OS, we would:
         // - Notify parent process
@@ -130,7 +127,7 @@ impl ProcessManager {
         fanga_arch_x86_64::serial_println!(
             "[PROCESS] Task {:?} exited with code {}",
             task_id,
-            exit_code
+            _exit_code
         );
         
         Ok(())

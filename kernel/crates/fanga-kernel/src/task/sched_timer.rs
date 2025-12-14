@@ -26,14 +26,13 @@ pub fn schedule_on_timer() -> bool {
             
             // Perform scheduling
             let mut scheduler_guard = scheduler::scheduler();
-            if let Some(scheduler) = scheduler_guard.as_mut() {
-                let (prev, next, should_switch) = scheduler.schedule();
+            let (_prev, _next, should_switch) = scheduler_guard.schedule();
                 
                 if should_switch {
                     #[cfg(not(test))]
                     fanga_arch_x86_64::serial_println!(
                         "[SCHED] Context switch: {:?} -> {:?}",
-                        prev, next
+                        _prev, _next
                     );
                     
                     // In a real implementation, we would perform the actual context switch here
@@ -42,7 +41,6 @@ pub fn schedule_on_timer() -> bool {
                     
                     return true;
                 }
-            }
         }
         
         false
