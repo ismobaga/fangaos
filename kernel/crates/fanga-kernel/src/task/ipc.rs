@@ -561,6 +561,7 @@ impl SignalHandler {
     }
     
     /// Helper to get the bit mask for a signal
+    /// Signal numbers start from 1, so SIGHUP (1) uses bit 1, SIGINT (2) uses bit 2, etc.
     fn signal_bit(signal: Signal) -> u32 {
         1u32 << (signal.num() as u32)
     }
@@ -608,10 +609,12 @@ impl SignalHandler {
             return None;
         }
         
-        // Find the first set bit (0-indexed)
+        // Find the first set bit (0-indexed position)
+        // Since signal numbers start from 1 and use bit N for signal N,
+        // the bit position returned by trailing_zeros() is the signal number
         let bit_pos = unblocked_pending.trailing_zeros() as u8;
         
-        // Signal numbers use the bit position directly
+        // The bit position equals the signal number
         // (bit 1 = SIGHUP (1), bit 2 = SIGINT (2), etc.)
         Signal::from_num(bit_pos)
     }
