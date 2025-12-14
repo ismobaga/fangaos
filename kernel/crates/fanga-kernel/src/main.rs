@@ -409,89 +409,151 @@ pub extern "C" fn _start() -> ! {
     // Initialize task scheduler
     arch::serial_println!("[Fanga] Initializing task scheduler...");
     task::scheduler::init();
+    task::process::init();
     arch::serial_println!("[Fanga] Task scheduler initialized ✅");
     
-    // Demonstrate task creation
-    arch::serial_println!("[Fanga] Testing task management...");
+    // Demonstrate process management system
+    arch::serial_println!("");
+    arch::serial_println!("===========================================");
+    arch::serial_println!("   PROCESS MANAGEMENT DEMONSTRATION");
+    arch::serial_println!("===========================================");
+    arch::serial_println!("");
+    
+    // Test 1: Basic task creation
+    arch::serial_println!("[Test 1] Creating multiple tasks with different priorities...");
     
     {
         let mut scheduler_guard = task::scheduler::scheduler();
-        let scheduler = scheduler_guard.as_mut().expect("Scheduler not initialized");
+        let scheduler = &mut *scheduler_guard;
         
-        // Create a simple task
-        let task1 = task::Task::new(
-            task::TaskId::new(0), // Will be overwritten by scheduler
-            memory::VirtAddr::new(0x1000), // Dummy entry point
-            memory::VirtAddr::new(0x10000), // Dummy stack
-            4096, // 4KB stack
-            memory::PhysAddr::new(0x0), // Dummy page table
+        // Create task 1 - Normal priority
+        let mut task1 = task::Task::new(
+            task::TaskId::new(0),
+            memory::VirtAddr::new(task::examples::task1 as *const () as u64),
+            memory::VirtAddr::new(0x10000),
+            4096,
+            memory::PhysAddr::new(0x0),
             task::TaskPriority::Normal,
         );
+        task1.set_name("counter_task");
         
+        // Create task 2 - High priority
         let mut task2 = task::Task::new(
             task::TaskId::new(0),
-            memory::VirtAddr::new(0x2000),
+            memory::VirtAddr::new(task::examples::task2 as *const () as u64),
             memory::VirtAddr::new(0x20000),
             4096,
             memory::PhysAddr::new(0x0),
             task::TaskPriority::High,
         );
-        task2.set_name("high_priority");
+        task2.set_name("compute_task");
         
+        // Create task 3 - Low priority
         let mut task3 = task::Task::new(
             task::TaskId::new(0),
-            memory::VirtAddr::new(0x3000),
+            memory::VirtAddr::new(task::examples::task3 as *const () as u64),
             memory::VirtAddr::new(0x30000),
             4096,
             memory::PhysAddr::new(0x0),
             task::TaskPriority::Low,
         );
-        task3.set_name("low_priority");
+        task3.set_name("background_task");
         
         // Add tasks to scheduler
-        match scheduler.add_task(task1) {
-            Ok(id) => arch::serial_println!("[Fanga] Created task: {:?}", id),
-            Err(e) => arch::serial_println!("[Fanga] Failed to create task: {}", e),
-        }
+        let id1 = scheduler.add_task(task1).expect("Failed to create task1");
+        arch::serial_println!("[Fanga]   Created task {:?}: counter_task (Normal priority)", id1);
         
-        match scheduler.add_task(task2) {
-            Ok(id) => arch::serial_println!("[Fanga] Created task: {:?} (high priority)", id),
-            Err(e) => arch::serial_println!("[Fanga] Failed to create task: {}", e),
-        }
+        let id2 = scheduler.add_task(task2).expect("Failed to create task2");
+        arch::serial_println!("[Fanga]   Created task {:?}: compute_task (High priority)", id2);
         
-        match scheduler.add_task(task3) {
-            Ok(id) => arch::serial_println!("[Fanga] Created task: {:?} (low priority)", id),
-            Err(e) => arch::serial_println!("[Fanga] Failed to create task: {}", e),
-        }
+        let id3 = scheduler.add_task(task3).expect("Failed to create task3");
+        arch::serial_println!("[Fanga]   Created task {:?}: background_task (Low priority)", id3);
         
+        arch::serial_println!("");
         arch::serial_println!("[Fanga] Total tasks: {}", scheduler.total_task_count());
         arch::serial_println!("[Fanga] Ready tasks: {}", scheduler.ready_task_count());
+    }
+    
+    // Test 2: Priority-based scheduling
+    arch::serial_println!("");
+    arch::serial_println!("[Test 2] Demonstrating priority-based scheduling...");
+    
+    {
+        let mut scheduler_guard = task::scheduler::scheduler();
+        let scheduler = &mut *scheduler_guard;
         
-        // Test scheduling
-        arch::serial_println!("[Fanga] Testing scheduler...");
         for i in 0..5 {
             let (prev, next, switched) = scheduler.schedule();
-            arch::serial_println!(
-                "[Fanga]   Schedule #{}: prev={:?}, next={:?}, switched={}",
-                i + 1, prev, next, switched
-            );
             
             if let Some(task_id) = next {
                 if let Some(task) = scheduler.get_task(task_id) {
                     arch::serial_println!(
-                        "[Fanga]     -> Running task '{}' (priority: {:?})",
+                        "[Fanga]   Round #{}: '{}' (priority: {:?}, state: {:?})",
+                        i + 1,
                         task.name(),
-                        task.priority
+                        task.priority,
+                        task.state
                     );
                 }
             }
         }
     }
     
-    arch::serial_println!("[Fanga] Task management test completed ✅");
+    // Test 3: Process state transitions
+    arch::serial_println!("");
+    arch::serial_println!("[Test 3] Testing process state transitions...");
+    
+    {
+        let mut scheduler_guard = task::scheduler::scheduler();
+        let scheduler = &mut *scheduler_guard;
+        
+        // Get a task ID
+        if let Some(task_id) = scheduler.current_task() {
+            arch::serial_println!("[Fanga]   Current task: {:?}", task_id);
+            
+            // Block the task
+            scheduler.block_task(task_id).expect("Failed to block task");
+            let task = scheduler.get_task(task_id).expect("Task not found");
+            arch::serial_println!("[Fanga]   Task state after blocking: {:?}", task.state);
+            
+            // Unblock the task
+            scheduler.unblock_task(task_id).expect("Failed to unblock task");
+            let task = scheduler.get_task(task_id).expect("Task not found");
+            arch::serial_println!("[Fanga]   Task state after unblocking: {:?}", task.state);
+        }
+    }
+    
+    // Test 4: Process termination
+    arch::serial_println!("");
+    arch::serial_println!("[Test 4] Testing process termination...");
+    
+    {
+        let mut scheduler_guard = task::scheduler::scheduler();
+        let scheduler = &mut *scheduler_guard;
+        
+        // Get the first task
+        let (_, next, _) = scheduler.schedule();
+        if let Some(task_id) = next {
+            let task_name = scheduler.get_task(task_id)
+                .map(|t| t.name())
+                .unwrap_or("<unknown>");
+            
+            arch::serial_println!("[Fanga]   Terminating task {:?}: {}", task_id, task_name);
+            scheduler.terminate_task(task_id).expect("Failed to terminate task");
+            
+            let task = scheduler.get_task(task_id).expect("Task not found");
+            arch::serial_println!("[Fanga]   Task state: {:?}", task.state);
+            
+            arch::serial_println!("[Fanga]   Remaining tasks: {}", scheduler.total_task_count());
+        }
+    }
+    
+    arch::serial_println!("");
+    arch::serial_println!("[Fanga] Process management demonstration completed ✅");
     
     // Test IPC
-    arch::serial_println!("[Fanga] Testing IPC...");
+    arch::serial_println!("");
+    arch::serial_println!("[Test 5] Testing IPC mechanisms...");
     
     use alloc::vec;
     let sender_id = task::TaskId::new(1);
@@ -502,15 +564,16 @@ pub extern "C" fn _start() -> ! {
     
     msg_queue.send(msg1).unwrap();
     msg_queue.send(msg2).unwrap();
-    arch::serial_println!("[Fanga] Sent 2 messages, queue length: {}", msg_queue.len());
+    arch::serial_println!("[Fanga]   Sent 2 messages, queue length: {}", msg_queue.len());
     
     if let Some(msg) = msg_queue.receive() {
-        arch::serial_println!("[Fanga] Received message from {:?}: {:?}", msg.sender, msg.data());
+        arch::serial_println!("[Fanga]   Received message from {:?}: {:?}", msg.sender, msg.data());
     }
     
     arch::serial_println!("[Fanga] IPC test completed ✅");
 
     // Test the new console and logging system
+    arch::serial_println!("");
     console_println!("===========================================");
     console_println!("    FangaOS - Operating System Kernel");
     console_println!("===========================================");
@@ -521,21 +584,19 @@ pub extern "C" fn _start() -> ! {
     log_info!("Task scheduler initialized");
     log_info!("Process management ready");
     
-    // Test different log levels
-    log_debug!("Debug message example");
-    log_info!("Info message example");
-    log_warn!("Warning message example");
-    log_error!("Error message example");
-    
     console_println!();
     console_println!("Kernel Features:");
     console_println!("  [x] Memory Management (PMM, VMM, Heap)");
-    console_println!("  [x] Interrupt Handling");
+    console_println!("  [x] Interrupt Handling (IDT, PIC/APIC)");
+    console_println!("  [x] System Calls (SYSCALL/SYSRET)");
     console_println!("  [x] Task Scheduling (Round-Robin & Priority)");
+    console_println!("  [x] Process Management (fork, exit)");
+    console_println!("  [x] Process States (Ready, Running, Blocked, Terminated)");
     console_println!("  [x] Inter-Process Communication");
+    console_println!("  [x] Context Switching (x86_64)");
     console_println!();
-    console_println!("Keyboard input is now active!");
-    console_println!("Type something and see it appear in serial output...");
+    console_println!("Multi-tasking demonstration complete!");
+    console_println!("Kernel is now idle. Press Ctrl+C to exit QEMU.");
     console_println!();
 
     loop {
