@@ -15,8 +15,8 @@ const MAX_LINE_LENGTH: usize = 256;
 
 /// Line editor state
 pub struct LineEditor {
-    /// Current line buffer
-    buffer: Vec<char>,
+    /// Current line buffer (None until initialized)
+    buffer: Option<Vec<char>>,
     /// Cursor position (index in buffer)
     cursor: usize,
 }
@@ -24,28 +24,40 @@ pub struct LineEditor {
 impl LineEditor {
     pub const fn new() -> Self {
         Self {
-            buffer: Vec::new(),
+            buffer: None,
             cursor: 0,
         }
     }
 
     /// Initialize the line editor (needed because const fn can't create Vec)
     pub fn init(&mut self) {
-        self.buffer = Vec::with_capacity(MAX_LINE_LENGTH);
-        self.cursor = 0;
+        if self.buffer.is_none() {
+            self.buffer = Some(Vec::with_capacity(MAX_LINE_LENGTH));
+            self.cursor = 0;
+        }
+    }
+
+    /// Ensure the editor is initialized
+    fn ensure_initialized(&mut self) {
+        if self.buffer.is_none() {
+            self.init();
+        }
     }
 
     /// Insert a character at cursor position
     pub fn insert_char(&mut self, ch: char) -> bool {
-        if self.buffer.len() >= MAX_LINE_LENGTH {
+        self.ensure_initialized();
+        let buffer = self.buffer.as_mut().unwrap();
+        
+        if buffer.len() >= MAX_LINE_LENGTH {
             return false;
         }
 
-        if self.cursor >= self.buffer.len() {
-            self.buffer.push(ch);
-            self.cursor = self.buffer.len();
+        if self.cursor >= buffer.len() {
+            buffer.push(ch);
+            self.cursor = buffer.len();
         } else {
-            self.buffer.insert(self.cursor, ch);
+            buffer.insert(self.cursor, ch);
             self.cursor += 1;
         }
         true
@@ -53,8 +65,11 @@ impl LineEditor {
 
     /// Delete character at cursor (like Delete key)
     pub fn delete_char(&mut self) -> bool {
-        if self.cursor < self.buffer.len() {
-            self.buffer.remove(self.cursor);
+        self.ensure_initialized();
+        let buffer = self.buffer.as_mut().unwrap();
+        
+        if self.cursor < buffer.len() {
+            buffer.remove(self.cursor);
             true
         } else {
             false
@@ -63,9 +78,12 @@ impl LineEditor {
 
     /// Delete character before cursor (like Backspace key)
     pub fn backspace(&mut self) -> bool {
+        self.ensure_initialized();
+        
         if self.cursor > 0 {
             self.cursor -= 1;
-            self.buffer.remove(self.cursor);
+            let buffer = self.buffer.as_mut().unwrap();
+            buffer.remove(self.cursor);
             true
         } else {
             false
@@ -74,6 +92,7 @@ impl LineEditor {
 
     /// Move cursor left
     pub fn move_left(&mut self) -> bool {
+        self.ensure_initialized();
         if self.cursor > 0 {
             self.cursor -= 1;
             true
@@ -84,7 +103,10 @@ impl LineEditor {
 
     /// Move cursor right
     pub fn move_right(&mut self) -> bool {
-        if self.cursor < self.buffer.len() {
+        self.ensure_initialized();
+        let buffer = self.buffer.as_ref().unwrap();
+        
+        if self.cursor < buffer.len() {
             self.cursor += 1;
             true
         } else {
@@ -94,6 +116,7 @@ impl LineEditor {
 
     /// Move cursor to beginning of line
     pub fn move_home(&mut self) -> bool {
+        self.ensure_initialized();
         if self.cursor > 0 {
             self.cursor = 0;
             true
@@ -104,8 +127,11 @@ impl LineEditor {
 
     /// Move cursor to end of line
     pub fn move_end(&mut self) -> bool {
-        if self.cursor < self.buffer.len() {
-            self.cursor = self.buffer.len();
+        self.ensure_initialized();
+        let buffer = self.buffer.as_ref().unwrap();
+        
+        if self.cursor < buffer.len() {
+            self.cursor = buffer.len();
             true
         } else {
             false
@@ -114,17 +140,26 @@ impl LineEditor {
 
     /// Get current line as a string
     pub fn get_line(&self) -> alloc::string::String {
-        self.buffer.iter().collect()
+        match &self.buffer {
+            Some(buf) => buf.iter().collect(),
+            None => alloc::string::String::new(),
+        }
     }
 
     /// Get current line length
     pub fn len(&self) -> usize {
-        self.buffer.len()
+        match &self.buffer {
+            Some(buf) => buf.len(),
+            None => 0,
+        }
     }
 
     /// Check if line is empty
     pub fn is_empty(&self) -> bool {
-        self.buffer.is_empty()
+        match &self.buffer {
+            Some(buf) => buf.is_empty(),
+            None => true,
+        }
     }
 
     /// Get cursor position
@@ -134,13 +169,19 @@ impl LineEditor {
 
     /// Clear the line
     pub fn clear(&mut self) {
-        self.buffer.clear();
+        self.ensure_initialized();
+        if let Some(buf) = &mut self.buffer {
+            buf.clear();
+        }
         self.cursor = 0;
     }
 
     /// Get the buffer slice
     pub fn buffer(&self) -> &[char] {
-        &self.buffer
+        match &self.buffer {
+            Some(buf) => buf.as_slice(),
+            None => &[],
+        }
     }
 }
 

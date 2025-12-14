@@ -94,10 +94,6 @@ pub extern "C" fn _start() -> ! {
     // Initialize framebuffer console early
     init_framebuffer();
 
-    // Initialize keyboard input system
-    io::keyboard_bridge::init();
-    arch::serial_println!("[Fanga] Keyboard input system initialized");
-
     if !BASE_REVISION.is_supported() {
         arch::serial_println!("[Fanga] Limine base revision NOT supported");
         loop {
@@ -244,6 +240,10 @@ pub extern "C" fn _start() -> ! {
                 arch::serial_println!("[Fanga] Created Box with value: {}", *test_box);
                 
                 arch::serial_println!("[Fanga] Heap allocation test completed ✅");
+                
+                // Initialize keyboard input system (requires heap for Vec allocation)
+                io::keyboard_bridge::init();
+                arch::serial_println!("[Fanga] Keyboard input system initialized ✅");
             } else {
                 arch::serial_println!("[Fanga] Failed to allocate heap memory");
             }
