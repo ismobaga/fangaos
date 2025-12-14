@@ -201,6 +201,81 @@ impl FramebufferWriter {
         }
     }
 
+    /// Get current column position
+    pub fn get_col(&self) -> usize {
+        self.col
+    }
+
+    /// Get current row position
+    pub fn get_row(&self) -> usize {
+        self.row
+    }
+
+    /// Set cursor position
+    pub fn set_position(&mut self, col: usize, row: usize) {
+        self.col = col.min(self.max_cols);
+        self.row = row.min(self.max_rows - 1);
+    }
+
+    /// Clear from current position to end of line
+    pub fn clear_to_eol(&mut self) {
+        let saved_col = self.col;
+        let saved_row = self.row;
+        
+        // Clear from current position to end of line
+        while self.col < self.max_cols {
+            self.draw_char(' ');
+            self.col += 1;
+        }
+        
+        // Restore position
+        self.col = saved_col;
+        self.row = saved_row;
+    }
+
+    /// Redraw the current line with the given text, starting from the given column
+    pub fn redraw_line(&mut self, start_col: usize, text: &[char]) {
+        let saved_col = self.col;
+        let saved_row = self.row;
+        
+        self.col = start_col;
+        
+        // Draw the text
+        for &ch in text {
+            if self.col >= self.max_cols {
+                break;
+            }
+            self.draw_char(ch);
+            self.col += 1;
+        }
+        
+        // Clear remaining characters on the line
+        while self.col < self.max_cols {
+            self.draw_char(' ');
+            self.col += 1;
+        }
+        
+        self.col = saved_col;
+        self.row = saved_row;
+    }
+
+    /// Draw a cursor at the current position
+    pub fn draw_cursor(&mut self) {
+        // Save current colors
+        let saved_fg = self.fg_color;
+        let saved_bg = self.bg_color;
+        
+        // Swap colors for cursor effect
+        self.fg_color = saved_bg;
+        self.bg_color = saved_fg;
+        
+        self.draw_char(' ');
+        
+        // Restore colors
+        self.fg_color = saved_fg;
+        self.bg_color = saved_bg;
+    }
+
     pub fn is_initialized(&self) -> bool {
         !self.addr.is_null()
     }

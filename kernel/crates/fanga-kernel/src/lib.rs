@@ -16,6 +16,5 @@ pub mod task;
 pub mod syscall;
 pub mod syscall_handlers;
 
-// IO module only available in no_std builds
-#[cfg(not(test))]
+// IO module
 pub mod io;

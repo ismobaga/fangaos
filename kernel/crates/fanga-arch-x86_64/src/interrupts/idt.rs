@@ -354,14 +354,8 @@ extern "x86-interrupt" fn keyboard_irq_handler(_frame: InterruptStackFrame) {
     let scancode = kbd.read_scancode();
     
     if let Some(event) = kbd.process_scancode(scancode) {
-        // Only handle key presses for now
-        if let crate::keyboard::KeyEvent::Press(keycode) = event {
-            if let Some(ascii) = kbd.to_ascii(keycode) {
-                serial_println!("[Keyboard] '{}'", ascii);
-            } else {
-                serial_println!("[Keyboard] {:?}", keycode);
-            }
-        }
+        // Dispatch to callback if registered
+        crate::keyboard::dispatch_event(event, kbd);
     }
     
     unsafe {
