@@ -335,7 +335,9 @@ extern "x86-interrupt" fn control_protection_handler(frame: InterruptStackFrame,
 
 // --------- IRQ Handlers (PIC) ---------
 
-static mut TIMER_TICKS: u64 = 0;
+use core::sync::atomic::{AtomicU64, Ordering};
+
+static TIMER_TICKS: AtomicU64 = AtomicU64::new(0);
 
 /// Type alias for timer interrupt callback
 pub type TimerCallback = fn();
@@ -355,14 +357,16 @@ pub unsafe fn set_timer_callback(callback: TimerCallback) {
 }
 
 extern "x86-interrupt" fn timer_irq_handler(_frame: InterruptStackFrame) {
+    TIMER_TICKS.fetch_add(1, Ordering::Relaxed);
+    
+    // Call registered callback if present
     unsafe {
-        TIMER_TICKS = TIMER_TICKS.wrapping_add(1);
-        
-        // Call registered callback if present
         if let Some(callback) = TIMER_CALLBACK {
             callback();
         }
-        
+    }
+    
+    unsafe {
         pic::eoi(IRQ_TIMER);
     }
 }
@@ -452,7 +456,7 @@ pub fn init() {
 
 /// Get the current timer tick count
 pub fn timer_ticks() -> u64 {
-    unsafe { TIMER_TICKS }
+    TIMER_TICKS.load(Ordering::Relaxed)
 }
 
 /// Get system uptime in milliseconds
