@@ -19,6 +19,14 @@ A modern x86_64 operating system kernel written in Rust.
   - Exception handlers
   - Hardware interrupt support (PIC and APIC)
   - Keyboard input handling
+  - Timer interrupts (PIT)
+
+- **Timer and Time Management**
+  - Programmable Interval Timer (PIT) configuration
+  - System uptime tracking (ticks, milliseconds, seconds)
+  - Delay and sleep functions
+  - Preemptive multitasking with time slicing
+  - Timer-based scheduler integration
 
 - **System Calls**
   - SYSCALL/SYSRET instruction support
@@ -158,6 +166,7 @@ fangaos/
 - [Testing Guide](TESTING.md) - How to run and write tests
 - [Memory Management](docs/MEMORY_MANAGEMENT.md) - Memory subsystem design
 - [Interrupt Handling](docs/INTERRUPT_HANDLING.md) - Interrupt architecture
+- [Timer Management](docs/TIMER_MANAGEMENT.md) - Timer and time management subsystem
 - [Input/Output](docs/INPUT_OUTPUT.md) - I/O subsystem design
 - [System Calls](docs/SYSTEM_CALLS.md) - System call interface
 - [Interactive Shell](docs/SHELL.md) - Shell/REPL documentation
@@ -235,6 +244,8 @@ FangaOS is currently in active development. Core features implemented:
 
 - ✅ Memory management (PMM, VMM, heap)
 - ✅ Interrupt handling (exceptions and IRQs)
+- ✅ Timer and time management (PIT, uptime tracking, delays)
+- ✅ Preemptive scheduling (time-slice based, priority queues)
 - ✅ Basic I/O (framebuffer, serial, keyboard)
 - ✅ System calls (syscall/sysret interface)
 - ✅ Comprehensive test suite
