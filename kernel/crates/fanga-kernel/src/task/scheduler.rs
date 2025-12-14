@@ -13,7 +13,8 @@ use super::tcb::{Task, TaskId, TaskState, TaskPriority};
 use spin::Mutex;
 
 /// Maximum number of tasks the scheduler can manage
-pub const MAX_TASKS: usize = 256;
+/// With 8KB heap, we can support ~32 tasks (each Task is ~240 bytes)
+pub const MAX_TASKS: usize = 32;
 
 /// Scheduler implementation
 pub struct Scheduler {
@@ -55,6 +56,13 @@ impl Scheduler {
             for _ in 0..MAX_TASKS {
                 self.tasks.push(None);
             }
+        }
+        
+        // Initialize ready queues with capacity to avoid 0-byte allocation panics
+        // Clear existing queues and reserve capacity for each
+        for queue in &mut self.ready_queues {
+            queue.clear();
+            queue.reserve(16);
         }
     }
     
