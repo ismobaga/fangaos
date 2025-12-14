@@ -110,3 +110,57 @@ pub extern "C" fn idle_task() -> ! {
         }
     }
 }
+
+/// Task 4: Timer demonstration task
+///
+/// This task demonstrates the timer and time management system by:
+/// - Printing system uptime
+/// - Using delays
+/// - Tracking elapsed time
+#[no_mangle]
+pub extern "C" fn timer_demo_task() -> ! {
+    #[cfg(not(test))]
+    {
+        fanga_arch_x86_64::serial_println!("[Timer Demo] Starting timer demonstration...");
+        
+        // Print initial uptime
+        let start_ticks = fanga_arch_x86_64::interrupts::idt::timer_ticks();
+        let start_ms = fanga_arch_x86_64::interrupts::idt::uptime_ms();
+        fanga_arch_x86_64::serial_println!("[Timer Demo] Start: {} ticks, {} ms", start_ticks, start_ms);
+        
+        // Demonstrate delays
+        for i in 0..5 {
+            let before = fanga_arch_x86_64::interrupts::idt::uptime_ms();
+            
+            fanga_arch_x86_64::serial_println!("[Timer Demo] Iteration {}: Delaying 100ms...", i);
+            crate::task::time::delay_ms(100);
+            
+            let after = fanga_arch_x86_64::interrupts::idt::uptime_ms();
+            let elapsed = after - before;
+            
+            fanga_arch_x86_64::serial_println!(
+                "[Timer Demo] Iteration {}: Delay complete! Elapsed: {}ms",
+                i, elapsed
+            );
+        }
+        
+        // Print final uptime
+        let end_ticks = fanga_arch_x86_64::interrupts::idt::timer_ticks();
+        let end_ms = fanga_arch_x86_64::interrupts::idt::uptime_ms();
+        let total_elapsed = end_ms - start_ms;
+        
+        fanga_arch_x86_64::serial_println!(
+            "[Timer Demo] End: {} ticks, {} ms (elapsed: {} ms)",
+            end_ticks, end_ms, total_elapsed
+        );
+        
+        fanga_arch_x86_64::serial_println!("[Timer Demo] Demonstration complete!");
+    }
+    
+    // Halt if we exit
+    loop {
+        unsafe {
+            core::arch::asm!("hlt", options(nostack, nomem));
+        }
+    }
+}
