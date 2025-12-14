@@ -263,7 +263,7 @@ These are aspirational features for consideration after core functionality is st
 - [ ] **Network Stack Optimization**: Zero-copy, TSO, etc.
 
 #### Virtualization
-- [ ] **KVM-style Hypervisor**: Type-1 hypervisor capabilities
+- [ ] **Bare-metal Hypervisor**: Type-1 hypervisor capabilities
 - [ ] **Paravirtualization**: Guest drivers for VMs
 - [ ] **Container Support**: Lightweight process isolation
 
@@ -370,7 +370,7 @@ These are aspirational features for consideration after core functionality is st
 
 ### Learning Resources
 - [OSDev Wiki](https://wiki.osdev.org/)
-- [Intel Software Developer Manuals](https://www.intel.com/sdm)
+- [Intel Software Developer Manuals](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html)
 - [AMD Architecture Programmer's Manual](https://www.amd.com/en/support/tech-docs)
 - [Writing an OS in Rust](https://os.phil-opp.com/)
 - [The Rust Programming Language](https://doc.rust-lang.org/book/)
