@@ -34,14 +34,13 @@ impl Port<u8> {
 
 impl Port<u16> {
     pub unsafe fn read(&self) -> u16 {
-        let low = fanga_arch_x86_64::port::inb(self.port);
-        let high = fanga_arch_x86_64::port::inb(self.port);
-        ((high as u16) << 8) | (low as u16)
+        // Use proper 16-bit port I/O instruction
+        fanga_arch_x86_64::port::inw(self.port)
     }
     
     pub unsafe fn write(&self, value: u16) {
-        fanga_arch_x86_64::port::outb(self.port, (value & 0xFF) as u8);
-        fanga_arch_x86_64::port::outb(self.port, ((value >> 8) & 0xFF) as u8);
+        // Use proper 16-bit port I/O instruction
+        fanga_arch_x86_64::port::outw(self.port, value)
     }
 }
 
