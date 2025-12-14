@@ -58,6 +58,14 @@ A modern x86_64 operating system kernel written in Rust.
   - Customizable prompt
   - Line editing (cursor movement, backspace, delete)
 
+- **Virtual File System (VFS)**
+  - Pluggable file system interface
+  - In-memory file system implementation
+  - File operations (open, close, read, write, seek)
+  - Directory operations (mkdir, rmdir, readdir)
+  - Path resolution (absolute and relative)
+  - Per-process file descriptor tables
+
 - **Architecture Support**
   - x86_64 primary architecture
   - UEFI boot support via Limine bootloader
@@ -180,6 +188,7 @@ fangaos/
 - [System Calls](docs/SYSTEM_CALLS.md) - System call interface
 - [Inter-Process Communication](docs/IPC.md) - IPC mechanisms and usage
 - [Interactive Shell](docs/SHELL.md) - Shell/REPL documentation
+- [Virtual File System](docs/VFS.md) - VFS architecture and file operations
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
 ## Development
@@ -267,8 +276,14 @@ FangaOS is currently in active development. Core features implemented:
 - ✅ Comprehensive test suite
 - ✅ CI/CD pipeline
 - ✅ Interactive shell/REPL with command history and tab completion
+- ✅ Virtual File System (VFS)
+  - ✅ Pluggable file system interface
+  - ✅ In-memory file system
+  - ✅ File operations (open, close, read, write, seek)
+  - ✅ Directory operations (mkdir, rmdir, readdir)
+  - ✅ Per-process file descriptor tables
 - 🚧 Process management (in progress)
-- 🚧 File system (planned)
+- 🚧 Persistent file systems (planned)
 - 🚧 Networking (planned)
 
 ## Resources
