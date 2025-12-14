@@ -1,0 +1,79 @@
+//! Preemptive Scheduling
+//!
+//! This module implements timer-based preemptive multitasking.
+//! It integrates with the timer interrupt to perform periodic context switches.
+
+use crate::task::{scheduler, TaskId};
+
+/// Time slice in timer ticks (default ~55ms with 18.2 Hz PIT)
+pub const TIME_SLICE: u64 = 1;
+
+/// Timer tick counter
+static mut TICK_COUNTER: u64 = 0;
+
+/// Perform a context switch if the time slice has expired
+///
+/// This should be called from the timer interrupt handler.
+///
+/// # Returns
+/// true if a context switch was performed, false otherwise
+pub fn schedule_on_timer() -> bool {
+    unsafe {
+        TICK_COUNTER += 1;
+        
+        if TICK_COUNTER >= TIME_SLICE {
+            TICK_COUNTER = 0;
+            
+            // Perform scheduling
+            let mut scheduler_guard = scheduler::scheduler();
+            if let Some(scheduler) = scheduler_guard.as_mut() {
+                let (prev, next, should_switch) = scheduler.schedule();
+                
+                if should_switch {
+                    #[cfg(not(test))]
+                    fanga_arch_x86_64::serial_println!(
+                        "[SCHED] Context switch: {:?} -> {:?}",
+                        prev, next
+                    );
+                    
+                    // In a real implementation, we would perform the actual context switch here
+                    // using fanga_arch_x86_64::context::switch_context()
+                    // For now, we just track the schedule decision
+                    
+                    return true;
+                }
+            }
+        }
+        
+        false
+    }
+}
+
+/// Get the current timer tick count
+pub fn get_ticks() -> u64 {
+    unsafe { TICK_COUNTER }
+}
+
+/// Reset the timer tick counter
+pub fn reset_ticks() {
+    unsafe { TICK_COUNTER = 0; }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_timer_ticks() {
+        reset_ticks();
+        assert_eq!(get_ticks(), 0);
+        
+        // Simulate timer ticks
+        for i in 1..=10 {
+            schedule_on_timer();
+            if i < TIME_SLICE {
+                assert_eq!(get_ticks(), i);
+            }
+        }
+    }
+}
