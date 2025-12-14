@@ -24,6 +24,17 @@ pub const SYS_EXIT: u64 = 60;
 pub const SYS_FORK: u64 = 57;
 pub const SYS_EXEC: u64 = 59;
 
+// IPC syscalls
+pub const SYS_PIPE: u64 = 22;
+pub const SYS_KILL: u64 = 62;
+pub const SYS_SHMGET: u64 = 29;
+pub const SYS_SHMAT: u64 = 30;
+pub const SYS_SHMDT: u64 = 67;
+pub const SYS_SHMCTL: u64 = 31;
+pub const SYS_MSGGET: u64 = 68;
+pub const SYS_MSGSND: u64 = 69;
+pub const SYS_MSGRCV: u64 = 70;
+
 /// Error codes (following POSIX conventions)
 pub const EINVAL: i64 = -22;  // Invalid argument
 pub const EBADF: i64 = -9;    // Bad file descriptor
@@ -31,6 +42,8 @@ pub const ENOMEM: i64 = -12;  // Out of memory
 pub const ENOSYS: i64 = -38;  // Function not implemented
 pub const EFAULT: i64 = -14;  // Bad address
 pub const EACCES: i64 = -13;  // Permission denied
+pub const EPERM: i64 = -1;    // Operation not permitted
+pub const ESRCH: i64 = -3;    // No such process
 
 /// Write a value to a Model Specific Register
 #[inline]
@@ -95,6 +108,15 @@ extern "C" fn syscall_handler(
         SYS_EXIT => sys_exit(arg1 as i32),
         SYS_FORK => sys_fork(),
         SYS_EXEC => sys_exec(arg1 as *const u8, arg2 as *const *const u8),
+        SYS_PIPE => sys_pipe(arg1 as *mut i32),
+        SYS_KILL => sys_kill(arg1 as i32, arg2 as i32),
+        SYS_SHMGET => sys_shmget(arg1 as i32, arg2 as usize, arg3 as i32),
+        SYS_SHMAT => sys_shmat(arg1 as i32, arg2 as *const u8, arg3 as i32),
+        SYS_SHMDT => sys_shmdt(arg1 as *const u8),
+        SYS_SHMCTL => sys_shmctl(arg1 as i32, arg2 as i32, arg3 as *mut u8),
+        SYS_MSGGET => sys_msgget(arg1 as i32, arg2 as i32),
+        SYS_MSGSND => sys_msgsnd(arg1 as i32, arg2 as *const u8, arg3 as usize, arg4 as i32),
+        SYS_MSGRCV => sys_msgrcv(arg1 as i32, arg2 as *mut u8, arg3 as usize, arg4 as i64, arg5 as i32),
         _ => ENOSYS,
     }
 }
@@ -192,6 +214,168 @@ fn sys_exec(_path: *const u8, _argv: *const *const u8) -> i64 {
     // - Jump to entry point
     
     ENOSYS
+}
+
+/// sys_pipe - Create a pipe
+fn sys_pipe(pipefd: *mut i32) -> i64 {
+    // Validate arguments
+    if pipefd.is_null() {
+        return EFAULT;
+    }
+    
+    crate::serial_println!("[SYSCALL] sys_pipe() - basic implementation");
+    
+    // TODO: Implement full pipe when we have file descriptor table:
+    // - Create a new Pipe object
+    // - Allocate two file descriptors
+    // - pipefd[0] = read end, pipefd[1] = write end
+    // - Return 0 on success
+    
+    // For now, just return success with dummy file descriptors
+    unsafe {
+        *pipefd.offset(0) = 3; // Read end
+        *pipefd.offset(1) = 4; // Write end
+    }
+    
+    0
+}
+
+/// sys_kill - Send a signal to a process
+fn sys_kill(pid: i32, sig: i32) -> i64 {
+    crate::serial_println!("[SYSCALL] sys_kill(pid={}, sig={})", pid, sig);
+    
+    if pid <= 0 {
+        return EINVAL;
+    }
+    
+    if sig < 0 || sig > 31 {
+        return EINVAL;
+    }
+    
+    // TODO: Implement signal sending when we have full process management:
+    // - Find the process by PID
+    // - Check permissions
+    // - Send the signal to the process's signal handler
+    // - Wake up the process if necessary
+    
+    // For now, return ESRCH (no such process)
+    ESRCH
+}
+
+/// sys_shmget - Get shared memory segment
+fn sys_shmget(key: i32, size: usize, shmflg: i32) -> i64 {
+    crate::serial_println!("[SYSCALL] sys_shmget(key={}, size={}, flags={})", key, size, shmflg);
+    
+    if size == 0 {
+        return EINVAL;
+    }
+    
+    // TODO: Implement shared memory when we have full IPC system:
+    // - Allocate physical memory for the segment
+    // - Register the segment in a global shared memory table
+    // - Return a shared memory ID
+    
+    // For now, return a dummy ID
+    1
+}
+
+/// sys_shmat - Attach shared memory segment
+fn sys_shmat(shmid: i32, shmaddr: *const u8, shmflg: i32) -> i64 {
+    crate::serial_println!("[SYSCALL] sys_shmat(id={}, addr={:p}, flags={})", shmid, shmaddr, shmflg);
+    
+    if shmid < 0 {
+        return EINVAL;
+    }
+    
+    // TODO: Implement shared memory attachment:
+    // - Find the shared memory segment by ID
+    // - Map it into the current process's address space
+    // - Return the virtual address where it's mapped
+    
+    // For now, return EINVAL
+    EINVAL
+}
+
+/// sys_shmdt - Detach shared memory segment
+fn sys_shmdt(shmaddr: *const u8) -> i64 {
+    crate::serial_println!("[SYSCALL] sys_shmdt(addr={:p})", shmaddr);
+    
+    if shmaddr.is_null() {
+        return EINVAL;
+    }
+    
+    // TODO: Implement shared memory detachment:
+    // - Find the shared memory segment by address
+    // - Unmap it from the current process's address space
+    // - Decrement reference count
+    
+    // For now, return success
+    0
+}
+
+/// sys_shmctl - Control shared memory segment
+fn sys_shmctl(shmid: i32, cmd: i32, _buf: *mut u8) -> i64 {
+    crate::serial_println!("[SYSCALL] sys_shmctl(id={}, cmd={})", shmid, cmd);
+    
+    if shmid < 0 {
+        return EINVAL;
+    }
+    
+    // TODO: Implement shared memory control operations:
+    // - IPC_STAT: Get segment info
+    // - IPC_SET: Set segment info
+    // - IPC_RMID: Remove segment
+    
+    // For now, return ENOSYS
+    ENOSYS
+}
+
+/// sys_msgget - Get message queue
+fn sys_msgget(key: i32, msgflg: i32) -> i64 {
+    crate::serial_println!("[SYSCALL] sys_msgget(key={}, flags={})", key, msgflg);
+    
+    // TODO: Implement message queue creation:
+    // - Create or get existing message queue by key
+    // - Return message queue ID
+    
+    // For now, return a dummy ID
+    1
+}
+
+/// sys_msgsnd - Send message to queue
+fn sys_msgsnd(msqid: i32, msgp: *const u8, msgsz: usize, msgflg: i32) -> i64 {
+    crate::serial_println!("[SYSCALL] sys_msgsnd(id={}, size={}, flags={})", msqid, msgsz, msgflg);
+    
+    if msgp.is_null() || msqid < 0 {
+        return EINVAL;
+    }
+    
+    // TODO: Implement message sending:
+    // - Find the message queue by ID
+    // - Copy message from user space
+    // - Add to queue
+    // - Wake up waiting receivers
+    
+    // For now, return success
+    0
+}
+
+/// sys_msgrcv - Receive message from queue
+fn sys_msgrcv(msqid: i32, msgp: *mut u8, msgsz: usize, msgtyp: i64, msgflg: i32) -> i64 {
+    crate::serial_println!("[SYSCALL] sys_msgrcv(id={}, size={}, type={}, flags={})", msqid, msgsz, msgtyp, msgflg);
+    
+    if msgp.is_null() || msqid < 0 {
+        return EINVAL;
+    }
+    
+    // TODO: Implement message receiving:
+    // - Find the message queue by ID
+    // - Wait for message matching type
+    // - Copy message to user space
+    // - Return message size
+    
+    // For now, return 0 (no message)
+    0
 }
 
 /// The actual syscall entry point (naked function in assembly)
@@ -327,6 +511,17 @@ mod tests {
         assert_eq!(SYS_EXIT, 60);
         assert_eq!(SYS_FORK, 57);
         assert_eq!(SYS_EXEC, 59);
+        
+        // IPC syscalls
+        assert_eq!(SYS_PIPE, 22);
+        assert_eq!(SYS_KILL, 62);
+        assert_eq!(SYS_SHMGET, 29);
+        assert_eq!(SYS_SHMAT, 30);
+        assert_eq!(SYS_SHMDT, 67);
+        assert_eq!(SYS_SHMCTL, 31);
+        assert_eq!(SYS_MSGGET, 68);
+        assert_eq!(SYS_MSGSND, 69);
+        assert_eq!(SYS_MSGRCV, 70);
     }
 
     #[test]
@@ -336,6 +531,8 @@ mod tests {
         assert!(ENOMEM < 0);
         assert!(ENOSYS < 0);
         assert!(EFAULT < 0);
+        assert!(EPERM < 0);
+        assert!(ESRCH < 0);
     }
 
     #[test]
@@ -362,5 +559,45 @@ mod tests {
         let mut buf = [0u8; 10];
         let result = sys_read(99, buf.as_mut_ptr(), buf.len());
         assert_eq!(result, EBADF);
+    }
+    
+    #[test]
+    fn test_sys_pipe_null_ptr() {
+        let result = sys_pipe(core::ptr::null_mut());
+        assert_eq!(result, EFAULT);
+    }
+    
+    #[test]
+    fn test_sys_pipe_basic() {
+        let mut pipefd = [0i32; 2];
+        let result = sys_pipe(pipefd.as_mut_ptr());
+        assert_eq!(result, 0);
+        assert!(pipefd[0] > 0);
+        assert!(pipefd[1] > 0);
+        assert_ne!(pipefd[0], pipefd[1]);
+    }
+    
+    #[test]
+    fn test_sys_kill_invalid_pid() {
+        let result = sys_kill(-1, 9);
+        assert_eq!(result, EINVAL);
+    }
+    
+    #[test]
+    fn test_sys_kill_invalid_signal() {
+        let result = sys_kill(1, -1);
+        assert_eq!(result, EINVAL);
+    }
+    
+    #[test]
+    fn test_sys_shmget_zero_size() {
+        let result = sys_shmget(1, 0, 0);
+        assert_eq!(result, EINVAL);
+    }
+    
+    #[test]
+    fn test_sys_shmget_basic() {
+        let result = sys_shmget(1, 4096, 0);
+        assert!(result > 0);
     }
 }

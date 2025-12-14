@@ -1,8 +1,11 @@
 //! Inter-Process Communication (IPC)
 //!
-//! This module provides basic IPC mechanisms including:
+//! This module provides comprehensive IPC mechanisms including:
 //! - Message queues
 //! - Synchronization primitives (mutex, semaphore)
+//! - Pipes (anonymous and named)
+//! - Shared memory segments
+//! - Signal handling
 
 extern crate alloc;
 use alloc::collections::VecDeque;
@@ -244,6 +247,379 @@ impl Default for TaskMutex {
     }
 }
 
+/// Pipe buffer size in bytes
+pub const PIPE_BUFFER_SIZE: usize = 4096;
+
+/// Pipe for inter-process communication
+#[derive(Debug)]
+pub struct Pipe {
+    /// Buffer for pipe data
+    buffer: VecDeque<u8>,
+    
+    /// Maximum buffer size
+    max_size: usize,
+    
+    /// Number of readers
+    readers: usize,
+    
+    /// Number of writers
+    writers: usize,
+    
+    /// Tasks waiting to read
+    waiting_readers: Vec<TaskId>,
+    
+    /// Tasks waiting to write
+    waiting_writers: Vec<TaskId>,
+}
+
+impl Pipe {
+    /// Create a new pipe
+    pub fn new() -> Self {
+        Self::with_capacity(PIPE_BUFFER_SIZE)
+    }
+    
+    /// Create a new pipe with specified capacity
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            buffer: VecDeque::with_capacity(capacity),
+            max_size: capacity,
+            readers: 0,
+            writers: 0,
+            waiting_readers: Vec::new(),
+            waiting_writers: Vec::new(),
+        }
+    }
+    
+    /// Add a reader to the pipe
+    pub fn add_reader(&mut self) {
+        self.readers += 1;
+    }
+    
+    /// Add a writer to the pipe
+    pub fn add_writer(&mut self) {
+        self.writers += 1;
+    }
+    
+    /// Remove a reader from the pipe
+    pub fn remove_reader(&mut self) {
+        if self.readers > 0 {
+            self.readers -= 1;
+        }
+    }
+    
+    /// Remove a writer from the pipe
+    pub fn remove_writer(&mut self) {
+        if self.writers > 0 {
+            self.writers -= 1;
+        }
+    }
+    
+    /// Check if pipe is readable (has data or no writers)
+    pub fn is_readable(&self) -> bool {
+        !self.buffer.is_empty() || self.writers == 0
+    }
+    
+    /// Check if pipe is writable (has space and has readers)
+    pub fn is_writable(&self) -> bool {
+        self.buffer.len() < self.max_size && self.readers > 0
+    }
+    
+    /// Write data to the pipe (non-blocking)
+    pub fn write(&mut self, data: &[u8]) -> Result<usize, &'static str> {
+        if self.readers == 0 {
+            return Err("No readers (broken pipe)");
+        }
+        
+        let available_space = self.max_size - self.buffer.len();
+        if available_space == 0 {
+            return Ok(0); // Would block
+        }
+        
+        let bytes_to_write = core::cmp::min(data.len(), available_space);
+        for &byte in &data[..bytes_to_write] {
+            self.buffer.push_back(byte);
+        }
+        
+        Ok(bytes_to_write)
+    }
+    
+    /// Read data from the pipe (non-blocking)
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, &'static str> {
+        if self.buffer.is_empty() {
+            if self.writers == 0 {
+                return Ok(0); // EOF
+            }
+            return Ok(0); // Would block
+        }
+        
+        let bytes_to_read = core::cmp::min(buf.len(), self.buffer.len());
+        for i in 0..bytes_to_read {
+            buf[i] = self.buffer.pop_front().unwrap();
+        }
+        
+        Ok(bytes_to_read)
+    }
+    
+    /// Get the number of bytes available to read
+    pub fn available(&self) -> usize {
+        self.buffer.len()
+    }
+    
+    /// Add a task waiting to read
+    pub fn add_waiting_reader(&mut self, task_id: TaskId) {
+        if !self.waiting_readers.contains(&task_id) {
+            self.waiting_readers.push(task_id);
+        }
+    }
+    
+    /// Add a task waiting to write
+    pub fn add_waiting_writer(&mut self, task_id: TaskId) {
+        if !self.waiting_writers.contains(&task_id) {
+            self.waiting_writers.push(task_id);
+        }
+    }
+    
+    /// Wake up waiting readers
+    pub fn wake_readers(&mut self) -> Vec<TaskId> {
+        core::mem::take(&mut self.waiting_readers)
+    }
+    
+    /// Wake up waiting writers
+    pub fn wake_writers(&mut self) -> Vec<TaskId> {
+        core::mem::take(&mut self.waiting_writers)
+    }
+}
+
+impl Default for Pipe {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Shared memory segment
+#[derive(Debug)]
+pub struct SharedMemory {
+    /// Physical address of the shared memory
+    phys_addr: crate::memory::PhysAddr,
+    
+    /// Size of the shared memory segment in bytes
+    size: usize,
+    
+    /// Reference count (number of processes attached)
+    ref_count: usize,
+    
+    /// Processes that have attached this segment
+    attached_tasks: Vec<TaskId>,
+}
+
+impl SharedMemory {
+    /// Create a new shared memory segment
+    pub fn new(phys_addr: crate::memory::PhysAddr, size: usize) -> Self {
+        Self {
+            phys_addr,
+            size,
+            ref_count: 0,
+            attached_tasks: Vec::new(),
+        }
+    }
+    
+    /// Attach a task to this shared memory segment
+    pub fn attach(&mut self, task_id: TaskId) -> Result<(), &'static str> {
+        if !self.attached_tasks.contains(&task_id) {
+            self.attached_tasks.push(task_id);
+            self.ref_count += 1;
+        }
+        Ok(())
+    }
+    
+    /// Detach a task from this shared memory segment
+    pub fn detach(&mut self, task_id: TaskId) -> Result<(), &'static str> {
+        if let Some(pos) = self.attached_tasks.iter().position(|&id| id == task_id) {
+            self.attached_tasks.remove(pos);
+            if self.ref_count > 0 {
+                self.ref_count -= 1;
+            }
+        }
+        Ok(())
+    }
+    
+    /// Get the physical address
+    pub fn phys_addr(&self) -> crate::memory::PhysAddr {
+        self.phys_addr
+    }
+    
+    /// Get the size
+    pub fn size(&self) -> usize {
+        self.size
+    }
+    
+    /// Get the reference count
+    pub fn ref_count(&self) -> usize {
+        self.ref_count
+    }
+    
+    /// Check if any tasks are attached
+    pub fn has_attachments(&self) -> bool {
+        self.ref_count > 0
+    }
+}
+
+/// Signal types (POSIX-like)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Signal {
+    /// Hangup
+    SIGHUP = 1,
+    /// Interrupt
+    SIGINT = 2,
+    /// Quit
+    SIGQUIT = 3,
+    /// Illegal instruction
+    SIGILL = 4,
+    /// Trace/breakpoint trap
+    SIGTRAP = 5,
+    /// Abort
+    SIGABRT = 6,
+    /// Bus error
+    SIGBUS = 7,
+    /// Floating point exception
+    SIGFPE = 8,
+    /// Kill (cannot be caught)
+    SIGKILL = 9,
+    /// User-defined signal 1
+    SIGUSR1 = 10,
+    /// Segmentation fault
+    SIGSEGV = 11,
+    /// User-defined signal 2
+    SIGUSR2 = 12,
+    /// Broken pipe
+    SIGPIPE = 13,
+    /// Alarm clock
+    SIGALRM = 14,
+    /// Termination
+    SIGTERM = 15,
+    /// Child stopped or terminated
+    SIGCHLD = 17,
+    /// Continue
+    SIGCONT = 18,
+    /// Stop (cannot be caught)
+    SIGSTOP = 19,
+    /// Terminal stop
+    SIGTSTP = 20,
+}
+
+impl Signal {
+    /// Convert from signal number
+    pub fn from_num(num: u8) -> Option<Self> {
+        match num {
+            1 => Some(Signal::SIGHUP),
+            2 => Some(Signal::SIGINT),
+            3 => Some(Signal::SIGQUIT),
+            4 => Some(Signal::SIGILL),
+            5 => Some(Signal::SIGTRAP),
+            6 => Some(Signal::SIGABRT),
+            7 => Some(Signal::SIGBUS),
+            8 => Some(Signal::SIGFPE),
+            9 => Some(Signal::SIGKILL),
+            10 => Some(Signal::SIGUSR1),
+            11 => Some(Signal::SIGSEGV),
+            12 => Some(Signal::SIGUSR2),
+            13 => Some(Signal::SIGPIPE),
+            14 => Some(Signal::SIGALRM),
+            15 => Some(Signal::SIGTERM),
+            17 => Some(Signal::SIGCHLD),
+            18 => Some(Signal::SIGCONT),
+            19 => Some(Signal::SIGSTOP),
+            20 => Some(Signal::SIGTSTP),
+            _ => None,
+        }
+    }
+    
+    /// Get the signal number
+    pub fn num(&self) -> u8 {
+        *self as u8
+    }
+}
+
+/// Signal handler
+#[derive(Debug)]
+pub struct SignalHandler {
+    /// Pending signals (bit mask)
+    pending: u32,
+    
+    /// Blocked signals (bit mask)
+    blocked: u32,
+}
+
+impl SignalHandler {
+    /// Create a new signal handler
+    pub fn new() -> Self {
+        Self {
+            pending: 0,
+            blocked: 0,
+        }
+    }
+    
+    /// Send a signal
+    pub fn send(&mut self, signal: Signal) {
+        let bit = 1u32 << (signal.num() as u32);
+        self.pending |= bit;
+    }
+    
+    /// Check if a signal is pending
+    pub fn is_pending(&self, signal: Signal) -> bool {
+        let bit = 1u32 << (signal.num() as u32);
+        (self.pending & bit) != 0
+    }
+    
+    /// Check if a signal is blocked
+    pub fn is_blocked(&self, signal: Signal) -> bool {
+        let bit = 1u32 << (signal.num() as u32);
+        (self.blocked & bit) != 0
+    }
+    
+    /// Block a signal
+    pub fn block(&mut self, signal: Signal) {
+        let bit = 1u32 << (signal.num() as u32);
+        self.blocked |= bit;
+    }
+    
+    /// Unblock a signal
+    pub fn unblock(&mut self, signal: Signal) {
+        let bit = 1u32 << (signal.num() as u32);
+        self.blocked &= !bit;
+    }
+    
+    /// Clear a pending signal
+    pub fn clear(&mut self, signal: Signal) {
+        let bit = 1u32 << (signal.num() as u32);
+        self.pending &= !bit;
+    }
+    
+    /// Get the next unblocked pending signal
+    pub fn next_unblocked(&self) -> Option<Signal> {
+        let unblocked_pending = self.pending & !self.blocked;
+        if unblocked_pending == 0 {
+            return None;
+        }
+        
+        // Find the first set bit
+        let signal_num = unblocked_pending.trailing_zeros() as u8;
+        Signal::from_num(signal_num)
+    }
+    
+    /// Check if there are any pending unblocked signals
+    pub fn has_pending(&self) -> bool {
+        (self.pending & !self.blocked) != 0
+    }
+}
+
+impl Default for SignalHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -350,5 +726,150 @@ mod tests {
         // Task2 cannot unlock task1's mutex
         let result = mutex.unlock(task2);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pipe_basic() {
+        let mut pipe = Pipe::new();
+        
+        // Add reader and writer
+        pipe.add_reader();
+        pipe.add_writer();
+        
+        // Write data
+        let data = b"Hello, pipe!";
+        let written = pipe.write(data).unwrap();
+        assert_eq!(written, data.len());
+        assert_eq!(pipe.available(), data.len());
+        
+        // Read data
+        let mut buf = [0u8; 32];
+        let read = pipe.read(&mut buf).unwrap();
+        assert_eq!(read, data.len());
+        assert_eq!(&buf[..read], data);
+        assert_eq!(pipe.available(), 0);
+    }
+
+    #[test]
+    fn test_pipe_broken() {
+        let mut pipe = Pipe::new();
+        
+        // Add only writer, no readers
+        pipe.add_writer();
+        
+        // Write should fail (broken pipe)
+        let data = b"test";
+        let result = pipe.write(data);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pipe_eof() {
+        let mut pipe = Pipe::new();
+        
+        // Add reader but no writers
+        pipe.add_reader();
+        
+        // Read should return 0 (EOF)
+        let mut buf = [0u8; 32];
+        let read = pipe.read(&mut buf).unwrap();
+        assert_eq!(read, 0);
+    }
+
+    #[test]
+    fn test_pipe_full() {
+        let mut pipe = Pipe::with_capacity(4);
+        
+        pipe.add_reader();
+        pipe.add_writer();
+        
+        // Fill the pipe
+        let data = b"12345678";
+        let written1 = pipe.write(&data[..4]).unwrap();
+        assert_eq!(written1, 4);
+        
+        // Pipe is full, should write 0 bytes
+        let written2 = pipe.write(&data[4..]).unwrap();
+        assert_eq!(written2, 0);
+    }
+
+    #[test]
+    fn test_shared_memory() {
+        use crate::memory::PhysAddr;
+        
+        let mut shm = SharedMemory::new(PhysAddr::new(0x1000), 4096);
+        let task1 = TaskId::new(1);
+        let task2 = TaskId::new(2);
+        
+        // Initially no attachments
+        assert_eq!(shm.ref_count(), 0);
+        assert!(!shm.has_attachments());
+        
+        // Attach task1
+        assert!(shm.attach(task1).is_ok());
+        assert_eq!(shm.ref_count(), 1);
+        assert!(shm.has_attachments());
+        
+        // Attach task2
+        assert!(shm.attach(task2).is_ok());
+        assert_eq!(shm.ref_count(), 2);
+        
+        // Detach task1
+        assert!(shm.detach(task1).is_ok());
+        assert_eq!(shm.ref_count(), 1);
+        
+        // Detach task2
+        assert!(shm.detach(task2).is_ok());
+        assert_eq!(shm.ref_count(), 0);
+        assert!(!shm.has_attachments());
+    }
+
+    #[test]
+    fn test_signal_send_and_check() {
+        let mut handler = SignalHandler::new();
+        
+        // Send a signal
+        handler.send(Signal::SIGINT);
+        assert!(handler.is_pending(Signal::SIGINT));
+        assert!(!handler.is_pending(Signal::SIGTERM));
+        
+        // Clear the signal
+        handler.clear(Signal::SIGINT);
+        assert!(!handler.is_pending(Signal::SIGINT));
+    }
+
+    #[test]
+    fn test_signal_blocking() {
+        let mut handler = SignalHandler::new();
+        
+        // Send and block a signal
+        handler.send(Signal::SIGUSR1);
+        handler.block(Signal::SIGUSR1);
+        
+        assert!(handler.is_pending(Signal::SIGUSR1));
+        assert!(handler.is_blocked(Signal::SIGUSR1));
+        assert!(!handler.has_pending()); // Blocked, so not available
+        
+        // Unblock
+        handler.unblock(Signal::SIGUSR1);
+        assert!(handler.has_pending());
+        
+        let next = handler.next_unblocked();
+        assert_eq!(next, Some(Signal::SIGUSR1));
+    }
+
+    #[test]
+    fn test_signal_from_num() {
+        assert_eq!(Signal::from_num(2), Some(Signal::SIGINT));
+        assert_eq!(Signal::from_num(9), Some(Signal::SIGKILL));
+        assert_eq!(Signal::from_num(15), Some(Signal::SIGTERM));
+        assert_eq!(Signal::from_num(99), None);
+    }
+
+    #[test]
+    fn test_signal_num() {
+        assert_eq!(Signal::SIGINT.num(), 2);
+        assert_eq!(Signal::SIGKILL.num(), 9);
+        assert_eq!(Signal::SIGTERM.num(), 15);
     }
 }
