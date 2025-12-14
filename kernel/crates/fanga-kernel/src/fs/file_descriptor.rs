@@ -84,7 +84,7 @@ impl FileDescriptorTable {
         // Find next available FD number
         while self.descriptors.contains_key(&self.next_fd) {
             self.next_fd += 1;
-            if self.next_fd < 0 {
+            if self.next_fd == i32::MAX {
                 return Err("Too many open files");
             }
         }

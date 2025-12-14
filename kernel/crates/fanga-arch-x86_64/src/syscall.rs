@@ -193,49 +193,76 @@ fn sys_write(fd: i32, buf: *const u8, count: usize) -> i64 {
 }
 
 /// sys_open - Open a file
-fn sys_open(_pathname: *const u8, _flags: i32, _mode: i32) -> i64 {
+fn sys_open(pathname: *const u8, _flags: i32, _mode: i32) -> i64 {
+    if pathname.is_null() {
+        return EFAULT;
+    }
     crate::serial_println!("[SYSCALL] sys_open() - stub");
     // TODO: Implement with VFS
     ENOSYS
 }
 
 /// sys_close - Close a file descriptor
-fn sys_close(_fd: i32) -> i64 {
+fn sys_close(fd: i32) -> i64 {
+    if fd < 0 {
+        return EBADF;
+    }
     crate::serial_println!("[SYSCALL] sys_close() - stub");
     // TODO: Implement with VFS
     ENOSYS
 }
 
 /// sys_lseek - Seek in a file
-fn sys_lseek(_fd: i32, _offset: i64, _whence: i32) -> i64 {
+fn sys_lseek(fd: i32, _offset: i64, whence: i32) -> i64 {
+    if fd < 0 {
+        return EBADF;
+    }
+    if whence < 0 || whence > 2 {
+        return EINVAL;
+    }
     crate::serial_println!("[SYSCALL] sys_lseek() - stub");
     // TODO: Implement with VFS
     ENOSYS
 }
 
 /// sys_mkdir - Create a directory
-fn sys_mkdir(_pathname: *const u8, _mode: i32) -> i64 {
+fn sys_mkdir(pathname: *const u8, _mode: i32) -> i64 {
+    if pathname.is_null() {
+        return EFAULT;
+    }
     crate::serial_println!("[SYSCALL] sys_mkdir() - stub");
     // TODO: Implement with VFS
     ENOSYS
 }
 
 /// sys_rmdir - Remove a directory
-fn sys_rmdir(_pathname: *const u8) -> i64 {
+fn sys_rmdir(pathname: *const u8) -> i64 {
+    if pathname.is_null() {
+        return EFAULT;
+    }
     crate::serial_println!("[SYSCALL] sys_rmdir() - stub");
     // TODO: Implement with VFS
     ENOSYS
 }
 
 /// sys_getdents - Get directory entries
-fn sys_getdents(_fd: i32, _dirp: *mut u8, _count: usize) -> i64 {
+fn sys_getdents(fd: i32, dirp: *mut u8, _count: usize) -> i64 {
+    if fd < 0 {
+        return EBADF;
+    }
+    if dirp.is_null() {
+        return EFAULT;
+    }
     crate::serial_println!("[SYSCALL] sys_getdents() - stub");
     // TODO: Implement with VFS
     ENOSYS
 }
 
 /// sys_unlink - Remove a file
-fn sys_unlink(_pathname: *const u8) -> i64 {
+fn sys_unlink(pathname: *const u8) -> i64 {
+    if pathname.is_null() {
+        return EFAULT;
+    }
     crate::serial_println!("[SYSCALL] sys_unlink() - stub");
     // TODO: Implement with VFS
     ENOSYS
