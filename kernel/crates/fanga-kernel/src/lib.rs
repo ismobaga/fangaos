@@ -18,3 +18,6 @@ pub mod syscall_handlers;
 
 // IO module
 pub mod io;
+
+// Shell module
+pub mod shell;

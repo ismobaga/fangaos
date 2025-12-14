@@ -16,6 +16,7 @@ use fanga_arch_x86_64 as arch;
 mod memory;
 mod io;
 mod task;
+mod shell;
 
 /* -------------------------------------------------------------------------- */
 /*                             GLOBAL ALLOCATOR                                */
@@ -247,6 +248,12 @@ pub extern "C" fn _start() -> ! {
                 // Initialize keyboard input system (requires heap for Vec allocation)
                 io::keyboard_bridge::init();
                 arch::serial_println!("[Fanga] Keyboard input system initialized ✅");
+                
+                // Initialize shell and command history
+                shell::init();
+                shell::history::init();
+                io::line_editor::init();
+                arch::serial_println!("[Fanga] Shell and command history initialized ✅");
             } else {
                 arch::serial_println!("[Fanga] Failed to allocate heap memory");
             }
@@ -601,10 +608,22 @@ pub extern "C" fn _start() -> ! {
     console_println!("  [x] Process States (Ready, Running, Blocked, Terminated)");
     console_println!("  [x] Inter-Process Communication");
     console_println!("  [x] Context Switching (x86_64)");
+    console_println!("  [x] Interactive Shell/REPL");
     console_println!();
     console_println!("Multi-tasking demonstration complete!");
-    console_println!("Kernel is now idle. Press Ctrl+C to exit QEMU.");
     console_println!();
+    console_println!("Welcome to FangaOS Interactive Shell!");
+    console_println!("Type 'help' for available commands.");
+    console_println!();
+    
+    // Show the initial prompt
+    {
+        let shell_guard = shell::shell();
+        if let Some(shell) = shell_guard.as_ref() {
+            let mut fb = io::framebuffer::framebuffer();
+            fb.write_string(shell.prompt());
+        }
+    }
 
     loop {
         // core::hint::spin_loop();
