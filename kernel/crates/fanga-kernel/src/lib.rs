@@ -21,3 +21,6 @@ pub mod io;
 
 // Shell module
 pub mod shell;
+
+// File system module
+pub mod fs;

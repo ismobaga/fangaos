@@ -6,11 +6,14 @@
 
 // Re-export syscall constants and error codes from architecture layer
 pub use fanga_arch_x86_64::syscall::{
-    SYS_READ, SYS_WRITE, SYS_EXIT, SYS_FORK, SYS_EXEC,
+    SYS_READ, SYS_WRITE, SYS_OPEN, SYS_CLOSE, SYS_LSEEK,
+    SYS_EXIT, SYS_FORK, SYS_EXEC,
+    SYS_MKDIR, SYS_RMDIR, SYS_GETDENTS, SYS_UNLINK,
     SYS_PIPE, SYS_KILL, 
     SYS_SHMGET, SYS_SHMAT, SYS_SHMDT, SYS_SHMCTL,
     SYS_MSGGET, SYS_MSGSND, SYS_MSGRCV,
     EINVAL, EBADF, ENOMEM, ENOSYS, EFAULT, EACCES, EPERM, ESRCH,
+    ENOENT, EEXIST, ENOTDIR, EISDIR, ENOTEMPTY,
 };
 
 /// Result type for system calls
@@ -54,6 +57,9 @@ mod tests {
     fn test_syscall_numbers() {
         assert_eq!(SYS_READ, 0);
         assert_eq!(SYS_WRITE, 1);
+        assert_eq!(SYS_OPEN, 2);
+        assert_eq!(SYS_CLOSE, 3);
+        assert_eq!(SYS_LSEEK, 8);
         assert_eq!(SYS_EXIT, 60);
         assert_eq!(SYS_FORK, 57);
         assert_eq!(SYS_EXEC, 59);
