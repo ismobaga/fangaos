@@ -52,42 +52,54 @@ pub fn delay_us(us: u64) {
 
 /// Sleep the current task for a specified number of milliseconds
 ///
-/// **Note**: This is a simplified implementation that uses busy-wait.
-/// In a full OS implementation, this would block the task, add it to
-/// a sleep queue, and yield to the scheduler. Other tasks would run
-/// while this task sleeps, and a timer interrupt would wake it up.
+/// **⚠️ WARNING: This implementation does NOT yield the CPU! ⚠️**
 ///
-/// Current implementation uses `delay_ms` which wastes CPU cycles.
-/// This is acceptable for initial implementation but should be improved.
+/// This is a **placeholder** implementation that uses busy-wait (`delay_ms`).
+/// Despite the name "sleep", this function currently wastes CPU cycles and
+/// does NOT allow other tasks to run during the sleep period.
+///
+/// **DO NOT USE in production code** - this is functionally identical to `delay_ms`.
+///
+/// In a proper implementation, this would:
+/// - Block the current task
+/// - Add task to a sleep queue with wake time
+/// - Yield to scheduler immediately
+/// - Timer interrupt would wake the task when time expires
+/// - Other tasks would run while this task sleeps
 ///
 /// # Arguments
 /// * `ms` - Number of milliseconds to sleep
 /// 
 /// # TODO
-/// - Implement proper sleep queue
+/// - Implement proper sleep queue with wake times
 /// - Yield to scheduler instead of busy-wait
 /// - Wake tasks from timer interrupt when sleep expires
+/// - Or remove this function until proper implementation is ready
 pub fn sleep_ms(ms: u64) {
     // For now, use delay_ms as we don't have proper sleep queue implementation
-    // In a full implementation, we would:
-    // 1. Block the current task
-    // 2. Set a wake time
-    // 3. Yield to scheduler
-    // 4. Timer interrupt would check wake times and unblock tasks
     delay_ms(ms);
 }
 
 /// Block the current task for a specified duration
 ///
-/// **Note**: This is a simplified placeholder implementation.
-/// It blocks the task in the scheduler but then busy-waits in the
-/// calling context, which defeats the purpose and wastes CPU.
+/// **⚠️ WARNING: This is a PLACEHOLDER implementation! ⚠️**
+///
+/// This function has a fundamental design flaw: it blocks the task in the
+/// scheduler but then busy-waits in the calling context, which:
+/// - Defeats the purpose of blocking
+/// - Wastes CPU cycles
+/// - Prevents other tasks from running
+/// - Makes the system unresponsive during the delay
+///
+/// **DO NOT USE in production code** - this is only for testing the
+/// block/unblock scheduler functionality.
 ///
 /// In a proper implementation:
 /// - The task would be blocked and added to a sleep queue
-/// - The calling context would return immediately
-/// - Timer interrupt would check wake times and unblock tasks
+/// - The function would return immediately
+/// - Timer interrupt would check wake times
 /// - Scheduler would automatically resume the task when ready
+/// - Other tasks would run during the sleep period
 ///
 /// # Arguments
 /// * `task_id` - The task to block
@@ -100,19 +112,14 @@ pub fn sleep_ms(ms: u64) {
 /// - Implement proper sleep queue with wake times
 /// - Remove busy-wait delay
 /// - Handle wake-up from timer interrupt
+/// - Or remove this function until proper implementation is ready
 pub fn block_for_duration(task_id: TaskId, duration_ms: u64) -> Result<(), &'static str> {
     let mut scheduler_guard = scheduler::scheduler();
     
     // Block the task
     scheduler_guard.block_task(task_id)?;
     
-    // In a real implementation, we would:
-    // - Store the wake-up time in a sleep queue
-    // - Return immediately (don't wait here)
-    // - Have a timer interrupt handler check wake times
-    // - Automatically unblock tasks when their time expires
-    
-    // Current simplified approach (not ideal):
+    // ⚠️ PLACEHOLDER: This busy-waits instead of yielding ⚠️
     drop(scheduler_guard);
     delay_ms(duration_ms);
     

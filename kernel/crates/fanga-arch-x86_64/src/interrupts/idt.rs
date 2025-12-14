@@ -359,15 +359,18 @@ pub unsafe fn set_timer_callback(callback: TimerCallback) {
 extern "x86-interrupt" fn timer_irq_handler(_frame: InterruptStackFrame) {
     TIMER_TICKS.fetch_add(1, Ordering::Relaxed);
     
+    // Send EOI early to ensure timely interrupt acknowledgment
+    // This allows nested timer interrupts if needed
+    unsafe {
+        pic::eoi(IRQ_TIMER);
+    }
+    
     // Call registered callback if present
+    // Note: Callback should complete quickly to avoid blocking other interrupts
     unsafe {
         if let Some(callback) = TIMER_CALLBACK {
             callback();
         }
-    }
-    
-    unsafe {
-        pic::eoi(IRQ_TIMER);
     }
 }
 
