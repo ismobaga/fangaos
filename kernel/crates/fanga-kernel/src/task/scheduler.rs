@@ -56,6 +56,14 @@ impl Scheduler {
                 self.tasks.push(None);
             }
         }
+        
+        // Initialize ready queues with capacity to avoid 0-byte allocation panics
+        self.ready_queues = [
+            VecDeque::with_capacity(16),
+            VecDeque::with_capacity(16),
+            VecDeque::with_capacity(16),
+            VecDeque::with_capacity(16),
+        ];
     }
     
     /// Add a new task to the scheduler
