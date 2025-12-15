@@ -128,8 +128,8 @@ impl ElfHeader {
             return Err("Data too small for ELF header");
         }
 
-        // Safety: We've checked the size, and ElfHeader is a POD type
-        let header = unsafe { core::ptr::read(data.as_ptr() as *const ElfHeader) };
+        // Safety: We've checked the size, and we use read_unaligned to handle potentially unaligned data
+        let header = unsafe { core::ptr::read_unaligned(data.as_ptr() as *const ElfHeader) };
 
         // Verify magic bytes
         if header.e_ident[0..4] != ELF_MAGIC {
@@ -228,8 +228,8 @@ impl ElfProgramHeader {
             return Err("Data too small for program header");
         }
 
-        // Safety: We've checked the size, and ElfProgramHeader is a POD type
-        let header = unsafe { core::ptr::read(data.as_ptr() as *const ElfProgramHeader) };
+        // Safety: We've checked the size, and we use read_unaligned to handle potentially unaligned data
+        let header = unsafe { core::ptr::read_unaligned(data.as_ptr() as *const ElfProgramHeader) };
         Ok(header)
     }
 

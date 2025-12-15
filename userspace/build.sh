@@ -2,6 +2,7 @@
 # Build script for user-space applications
 
 set -e
+set -u
 
 USERSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$USERSPACE_DIR/build"

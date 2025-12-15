@@ -24,8 +24,11 @@ pub fn prepare_usermode_stack(
     // 3. Push argc
     // 4. Align stack to 16 bytes (required by System V ABI)
 
+    // Stack alignment mask (16 bytes)
+    const STACK_ALIGNMENT_MASK: u64 = 0xF;
+
     // For now, just return the stack top aligned
-    let aligned = stack_top.as_u64() & !0xF;
+    let aligned = stack_top.as_u64() & !STACK_ALIGNMENT_MASK;
     VirtAddr::new(aligned)
 }
 
@@ -48,7 +51,7 @@ pub unsafe fn enter_usermode(entry_point: VirtAddr, stack_pointer: VirtAddr) -> 
     {
         use fanga_arch_x86_64::gdt::{USER_CODE_SELECTOR, USER_DATA_SELECTOR};
         
-        crate::serial_println!(
+        fanga_arch_x86_64::serial_println!(
             "[USERMODE] Entering user mode: entry={:#x}, stack={:#x}",
             entry_point.as_u64(),
             stack_pointer.as_u64()
@@ -66,7 +69,10 @@ pub unsafe fn enter_usermode(entry_point: VirtAddr, stack_pointer: VirtAddr) -> 
         // 4. RSP (stack pointer)
         // 5. SS (stack segment)
         
-        let rflags: u64 = 0x202; // Interrupt enable flag (IF) set
+        // RFLAGS bits
+        const RFLAGS_RESERVED: u64 = 1 << 1; // Bit 1 is always 1
+        const RFLAGS_IF: u64 = 1 << 9;       // Interrupt Enable Flag
+        let rflags: u64 = RFLAGS_RESERVED | RFLAGS_IF;
 
         core::arch::asm!(
             // Push SS

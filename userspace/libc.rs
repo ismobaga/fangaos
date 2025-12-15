@@ -66,6 +66,9 @@ pub fn read(fd: i32, buf: &mut [u8]) -> i64 {
 }
 
 // Open file
+// Note: This assumes the kernel can handle non-null-terminated paths
+// by using the string slice length. In a full implementation, paths
+// should be null-terminated or the length should be passed explicitly.
 pub fn open(path: &str, flags: i32, mode: i32) -> i64 {
     unsafe {
         syscall3(

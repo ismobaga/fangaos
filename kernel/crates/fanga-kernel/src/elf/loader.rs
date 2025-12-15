@@ -138,8 +138,7 @@ fn load_segment(phdr: &ElfProgramHeader, data: &[u8]) -> Result<(), ElfLoadError
 
     #[cfg(not(test))]
     {
-        use crate::serial_println;
-        serial_println!(
+        fanga_arch_x86_64::serial_println!(
             "[ELF] Loading segment: vaddr={:#x}, filesz={:#x}, memsz={:#x}, flags={:#x}",
             phdr.p_vaddr, phdr.p_filesz, phdr.p_memsz, phdr.p_flags
         );
