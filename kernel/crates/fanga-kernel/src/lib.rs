@@ -24,3 +24,6 @@ pub mod shell;
 
 // File system module
 pub mod fs;
+
+// Storage module (ATA/AHCI, partitions, FAT32, caching)
+pub mod storage;

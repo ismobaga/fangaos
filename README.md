@@ -66,6 +66,13 @@ A modern x86_64 operating system kernel written in Rust.
   - Path resolution (absolute and relative)
   - Per-process file descriptor tables
 
+- **Storage and File Systems**
+  - ATA/AHCI disk drivers for hard disk/SSD access
+  - MBR and GPT partition table support
+  - FAT32 file system (read and write)
+  - Disk caching with LRU eviction policy
+  - Block device abstraction layer
+
 - **Architecture Support**
   - x86_64 primary architecture
   - UEFI boot support via Limine bootloader
@@ -189,6 +196,7 @@ fangaos/
 - [Inter-Process Communication](docs/IPC.md) - IPC mechanisms and usage
 - [Interactive Shell](docs/SHELL.md) - Shell/REPL documentation
 - [Virtual File System](docs/VFS.md) - VFS architecture and file operations
+- [Storage and File Systems](docs/STORAGE.md) - Disk drivers, partitions, FAT32, and caching
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
 ## Development
@@ -282,8 +290,15 @@ FangaOS is currently in active development. Core features implemented:
   - ✅ File operations (open, close, read, write, seek)
   - ✅ Directory operations (mkdir, rmdir, readdir)
   - ✅ Per-process file descriptor tables
+- ✅ Storage and Persistent File Systems
+  - ✅ ATA/IDE driver (PIO mode)
+  - ✅ AHCI driver structure (planned completion)
+  - ✅ MBR partition table support
+  - ✅ GPT partition table support
+  - ✅ FAT32 file system (read/write)
+  - ✅ Disk caching with LRU eviction
+  - ✅ Block device abstraction
 - 🚧 Process management (in progress)
-- 🚧 Persistent file systems (planned)
 - 🚧 Networking (planned)
 
 ## Resources
