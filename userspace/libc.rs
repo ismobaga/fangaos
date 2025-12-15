@@ -2,7 +2,10 @@
 // This provides basic syscall wrappers and startup code
 
 // Syscall numbers (must match kernel)
+const SYS_READ: u64 = 0;
 const SYS_WRITE: u64 = 1;
+const SYS_OPEN: u64 = 2;
+const SYS_CLOSE: u64 = 3;
 const SYS_EXIT: u64 = 60;
 
 // Syscall wrapper - uses the syscall instruction
@@ -47,6 +50,37 @@ pub fn write(fd: i32, buf: &[u8]) -> i64 {
             buf.as_ptr() as u64,
             buf.len() as u64,
         )
+    }
+}
+
+// Read from file descriptor
+pub fn read(fd: i32, buf: &mut [u8]) -> i64 {
+    unsafe {
+        syscall3(
+            SYS_READ,
+            fd as u64,
+            buf.as_mut_ptr() as u64,
+            buf.len() as u64,
+        )
+    }
+}
+
+// Open file
+pub fn open(path: &str, flags: i32, mode: i32) -> i64 {
+    unsafe {
+        syscall3(
+            SYS_OPEN,
+            path.as_ptr() as u64,
+            flags as u64,
+            mode as u64,
+        )
+    }
+}
+
+// Close file descriptor
+pub fn close(fd: i32) -> i64 {
+    unsafe {
+        syscall1(SYS_CLOSE, fd as u64)
     }
 }
 

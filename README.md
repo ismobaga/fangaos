@@ -197,6 +197,7 @@ fangaos/
 - [Interactive Shell](docs/SHELL.md) - Shell/REPL documentation
 - [Virtual File System](docs/VFS.md) - VFS architecture and file operations
 - [Storage and File Systems](docs/STORAGE.md) - Disk drivers, partitions, FAT32, and caching
+- [User Space Support](docs/USER_SPACE.md) - User mode applications, ELF loader, and minimal libc
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
 ## Development
@@ -298,7 +299,15 @@ FangaOS is currently in active development. Core features implemented:
   - ✅ FAT32 file system (read/write)
   - ✅ Disk caching with LRU eviction
   - ✅ Block device abstraction
+- ✅ User Space Support
+  - ✅ User/Kernel mode privilege separation (Ring 0/Ring 3)
+  - ✅ ELF64 binary loader
+  - ✅ User mode transition (IRET)
+  - ✅ Minimal libc with syscall wrappers
+  - ✅ User-space application support
+  - ✅ Sample user applications
 - 🚧 Process management (in progress)
+- 🚧 Dynamic linking (planned)
 - 🚧 Networking (planned)
 
 ## Resources
