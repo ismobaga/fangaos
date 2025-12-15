@@ -179,9 +179,9 @@ impl DemandPagingManager {
     /// * `start` - Starting virtual address
     /// * `num_pages` - Number of pages to reserve
     pub fn reserve_pages(&mut self, start: VirtAddr, num_pages: usize) {
-        let page_size = 4096u64;
+        use crate::memory::addr::PAGE_SIZE;
         for i in 0..num_pages {
-            let virt = start.as_u64() + (i as u64 * page_size);
+            let virt = start.as_u64() + (i as u64 * PAGE_SIZE as u64);
             self.page_states.insert(virt, PageState::NotAllocated);
         }
     }

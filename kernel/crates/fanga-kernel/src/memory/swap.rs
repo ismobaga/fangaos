@@ -86,14 +86,22 @@ impl SwapManager {
     /// # Safety
     /// The caller must ensure that the physical address is valid and the data
     /// can be safely read.
+    ///
+    /// # Note
+    /// In this simulated implementation, we don't actually copy the physical
+    /// page contents. In a production implementation, this would read from
+    /// the physical address and write to disk. For testing purposes, we just
+    /// track that the page has been swapped out.
     pub unsafe fn swap_out(&mut self, virt_addr: VirtAddr, phys_addr: PhysAddr) -> Option<SwapSlot> {
         let slot = self.alloc_slot()?;
 
-        // In a real implementation, we would write the page to disk
-        // For now, we simulate by copying the page data
-        let phys = phys_addr.as_u64();
+        // In a real implementation, we would:
+        // 1. Copy page data from physical memory: 
+        //    let src = phys_addr.as_u64() as *const u8;
+        //    core::ptr::copy_nonoverlapping(src, page_data.as_mut_ptr(), PAGE_SIZE);
+        // 2. Write the data to disk at the swap slot location
         
-        // Create a copy of the page data (simulation)
+        // Create a placeholder for the swapped page (simulation)
         let mut page_data = Vec::with_capacity(PAGE_SIZE);
         page_data.resize(PAGE_SIZE, 0);
         

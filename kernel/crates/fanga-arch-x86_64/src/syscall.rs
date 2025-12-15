@@ -342,7 +342,7 @@ fn sys_munmap(addr: u64, length: usize) -> i64 {
         return EINVAL;
     }
 
-    // Check alignment
+    // Check alignment (use constant from memory module when available)
     const PAGE_SIZE: u64 = 4096;
     if addr % PAGE_SIZE != 0 {
         return EINVAL;

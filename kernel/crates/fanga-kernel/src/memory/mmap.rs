@@ -240,11 +240,12 @@ impl MmapManager {
         }
 
         // Remove the mappings
-        for addr in to_remove {
-            self.mappings.remove(&addr);
+        for addr in to_remove.iter() {
+            self.mappings.remove(addr);
         }
 
-        !self.mappings.is_empty() || length > 0
+        // Return true if we successfully removed any mappings
+        !to_remove.is_empty()
     }
 
     /// Find a mapping containing the given address
