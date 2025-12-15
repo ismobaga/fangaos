@@ -4,6 +4,8 @@
 //! integrating with task management, memory management, and I/O subsystems.
 
 use crate::task::{self, TaskId};
+use crate::userspace::{load_user_binary, enter_usermode, prepare_usermode_stack};
+use crate::elf::ElfLoadError;
 
 /// Handle fork() system call
 ///
@@ -70,6 +72,48 @@ pub fn handle_exit(task_id: TaskId, exit_code: i32) -> ! {
 pub fn get_current_task() -> Option<TaskId> {
     let scheduler_guard = task::scheduler::scheduler();
     scheduler_guard.current_task()
+}
+
+/// Handle exec() system call
+///
+/// Loads and executes a new program, replacing the current process.
+///
+/// # Arguments
+/// * `binary_data` - The ELF binary data to load
+/// * `argc` - Number of arguments
+/// * `argv` - Array of argument strings
+///
+/// # Returns
+/// This function does not return on success (process is replaced).
+/// On error, returns a negative error code.
+///
+/// # Safety
+/// This function is unsafe because it transitions to user mode.
+pub unsafe fn handle_exec(
+    binary_data: &[u8],
+    argc: usize,
+    argv: &[*const u8],
+) -> Result<(), i64> {
+    // Load the user binary
+    let user_info = match load_user_binary(binary_data, 8192) {
+        Ok(info) => info,
+        Err(ElfLoadError::InvalidFormat) => return Err(fanga_arch_x86_64::syscall::EINVAL),
+        Err(ElfLoadError::UnsupportedType) => return Err(fanga_arch_x86_64::syscall::ENOSYS),
+        Err(ElfLoadError::OutOfMemory) => return Err(fanga_arch_x86_64::syscall::ENOMEM),
+        Err(_) => return Err(fanga_arch_x86_64::syscall::EINVAL),
+    };
+
+    // Prepare the user stack with arguments
+    let stack_pointer = prepare_usermode_stack(user_info.stack_pointer, argc, argv);
+
+    fanga_arch_x86_64::serial_println!(
+        "[SYSCALL] exec: entry={:#x}, stack={:#x}",
+        user_info.entry_point.as_u64(),
+        stack_pointer.as_u64()
+    );
+
+    // Enter user mode - this does not return
+    enter_usermode(user_info.entry_point, stack_pointer);
 }
 
 #[cfg(test)]

@@ -27,3 +27,9 @@ pub mod fs;
 
 // Storage module (ATA/AHCI, partitions, FAT32, caching)
 pub mod storage;
+
+// ELF loader module
+pub mod elf;
+
+// User space support
+pub mod userspace;
