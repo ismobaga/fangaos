@@ -13,10 +13,10 @@ use limine::BaseRevision;
 
 use fanga_arch_x86_64 as arch;
 
-mod memory;
 mod io;
-mod task;
+mod memory;
 mod shell;
+mod task;
 
 /* -------------------------------------------------------------------------- */
 /*                             GLOBAL ALLOCATOR                                */
@@ -81,7 +81,12 @@ fn init_framebuffer() {
 
     // Initialize the framebuffer console
     io::framebuffer::init(addr, width, height, pitch, bpp);
-    arch::serial_println!("[Fanga] Framebuffer console initialized: {}x{} @ {}bpp", width, height, bpp);
+    arch::serial_println!(
+        "[Fanga] Framebuffer console initialized: {}x{} @ {}bpp",
+        width,
+        height,
+        bpp
+    );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -148,13 +153,13 @@ pub extern "C" fn _start() -> ! {
 
     // Initialize PMM (Physical Memory Manager)
     static mut PMM: memory::PhysicalMemoryManager = memory::PhysicalMemoryManager::new();
-    
+
     if let (Some(mm), Some(hhdm)) = (MEMMAP_REQ.get_response(), HHDM_REQ.get_response()) {
         arch::serial_println!("[Fanga] Initializing PMM...");
         unsafe {
             PMM.init(mm, hhdm.offset());
         }
-        
+
         arch::serial_println!(
             "[Fanga] PMM initialized: {} pages total, {} pages free, {} pages used",
             unsafe { PMM.total_pages() },
@@ -167,21 +172,18 @@ pub extern "C" fn _start() -> ! {
         unsafe {
             if let Some(page1) = PMM.alloc_page() {
                 arch::serial_println!("[Fanga] Allocated page at: 0x{:x}", page1);
-                
+
                 if let Some(page2) = PMM.alloc_page() {
                     arch::serial_println!("[Fanga] Allocated page at: 0x{:x}", page2);
-                    
+
                     // Free the pages
                     PMM.free_page(page1);
                     arch::serial_println!("[Fanga] Freed page at: 0x{:x}", page1);
-                    
+
                     PMM.free_page(page2);
                     arch::serial_println!("[Fanga] Freed page at: 0x{:x}", page2);
-                    
-                    arch::serial_println!(
-                        "[Fanga] After test: {} pages free",
-                        PMM.free_pages()
-                    );
+
+                    arch::serial_println!("[Fanga] After test: {} pages free", PMM.free_pages());
                 } else {
                     arch::serial_println!("[Fanga] Failed to allocate second page");
                 }
@@ -189,66 +191,69 @@ pub extern "C" fn _start() -> ! {
                 arch::serial_println!("[Fanga] Failed to allocate first page");
             }
         }
-        
+
         arch::serial_println!("[Fanga] PMM test completed ✅");
-        
+
         // Initialize heap allocator
         arch::serial_println!("[Fanga] Initializing heap allocator...");
-        
+
         // Allocate pages for the heap (1 MiB = 256 pages)
         const HEAP_SIZE: usize = 1024 * 1024; // 1 MiB
         const HEAP_PAGES: usize = HEAP_SIZE / memory::PAGE_SIZE;
-        
+
         unsafe {
             // Allocate multiple physical pages for the heap to ensure sufficient space
             // for scheduler and other kernel structures
             const HEAP_PAGES: usize = 3; // Allocate 3 pages (12KB) for the heap
-            
+
             if let Some(heap_start_phys) = PMM.alloc_page() {
                 // Allocate additional contiguous pages for the heap
                 for i in 1..HEAP_PAGES {
                     if PMM.alloc_page().is_none() {
-                        arch::serial_println!("[Fanga] Warning: Could only allocate {} heap pages", i);
+                        arch::serial_println!(
+                            "[Fanga] Warning: Could only allocate {} heap pages",
+                            i
+                        );
                         break;
                     }
                 }
-                
+
                 // Use the HHDM mapping for the heap (contiguous virtual memory)
                 let heap_start_virt = hhdm.offset() + heap_start_phys;
                 let initial_heap_size = memory::PAGE_SIZE * HEAP_PAGES;
-                
+
                 GLOBAL_ALLOCATOR.init(heap_start_virt as usize, initial_heap_size);
-                
+
                 arch::serial_println!(
                     "[Fanga] Heap initialized: {} KiB at 0x{:x}",
                     initial_heap_size / 1024,
                     heap_start_virt
                 );
-                
+
                 // Update memory statistics
                 memory::stats::stats().set_total_heap(initial_heap_size);
-                
+
                 // Test heap allocation
                 arch::serial_println!("[Fanga] Testing heap allocation...");
-                
+
                 // Test with Vec (requires alloc)
                 let mut test_vec = alloc::vec![1, 2, 3, 4, 5];
                 arch::serial_println!("[Fanga] Created Vec with {} elements", test_vec.len());
-                
+
                 test_vec.push(6);
                 test_vec.push(7);
                 arch::serial_println!("[Fanga] Vec now has {} elements", test_vec.len());
-                
+
                 // Test with Box
                 let test_box = alloc::boxed::Box::new(42u64);
                 arch::serial_println!("[Fanga] Created Box with value: {}", *test_box);
-                
+
                 arch::serial_println!("[Fanga] Heap allocation test completed ✅");
-                
+
                 // Initialize keyboard input system (requires heap for Vec allocation)
                 io::keyboard_bridge::init();
                 arch::serial_println!("[Fanga] Keyboard input system initialized ✅");
-                
+
                 // Initialize shell and command history
                 shell::init();
                 shell::history::init();
@@ -258,13 +263,13 @@ pub extern "C" fn _start() -> ! {
                 arch::serial_println!("[Fanga] Failed to allocate heap memory");
             }
         }
-        
+
         // Initialize memory regions
         arch::serial_println!("[Fanga] Initializing memory regions...");
-        
-        static mut MEMORY_REGIONS: memory::regions::MemoryRegionManager = 
+
+        static mut MEMORY_REGIONS: memory::regions::MemoryRegionManager =
             memory::regions::MemoryRegionManager::new();
-        
+
         unsafe {
             // Add regions based on memory map
             for entry in mm.entries() {
@@ -272,39 +277,36 @@ pub extern "C" fn _start() -> ! {
                     limine::memory_map::EntryType::USABLE => {
                         memory::regions::MemoryRegionType::Available
                     }
-                    limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE |
-                    limine::memory_map::EntryType::ACPI_RECLAIMABLE |
-                    limine::memory_map::EntryType::ACPI_NVS |
-                    limine::memory_map::EntryType::BAD_MEMORY |
-                    limine::memory_map::EntryType::RESERVED => {
+                    limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE
+                    | limine::memory_map::EntryType::ACPI_RECLAIMABLE
+                    | limine::memory_map::EntryType::ACPI_NVS
+                    | limine::memory_map::EntryType::BAD_MEMORY
+                    | limine::memory_map::EntryType::RESERVED => {
                         memory::regions::MemoryRegionType::Reserved
                     }
-                    limine::memory_map::EntryType::FRAMEBUFFER |
-                    limine::memory_map::EntryType::KERNEL_AND_MODULES => {
+                    limine::memory_map::EntryType::FRAMEBUFFER
+                    | limine::memory_map::EntryType::KERNEL_AND_MODULES => {
                         memory::regions::MemoryRegionType::KernelData
                     }
                     _ => memory::regions::MemoryRegionType::Reserved,
                 };
-                
-                let region = memory::regions::MemoryRegion::new(
-                    entry.base,
-                    entry.length,
-                    region_type,
-                );
-                
+
+                let region =
+                    memory::regions::MemoryRegion::new(entry.base, entry.length, region_type);
+
                 if !MEMORY_REGIONS.add_region(region) {
                     arch::serial_println!("[Fanga] Warning: Memory region manager is full");
                     break;
                 }
             }
-            
+
             arch::serial_println!("[Fanga] Memory regions initialized");
-            arch::serial_println!("[Fanga] Total regions: {}", MEMORY_REGIONS.count_by_type(
-                memory::regions::MemoryRegionType::Available
-            ) + MEMORY_REGIONS.count_by_type(
-                memory::regions::MemoryRegionType::Reserved
-            ));
-            
+            arch::serial_println!(
+                "[Fanga] Total regions: {}",
+                MEMORY_REGIONS.count_by_type(memory::regions::MemoryRegionType::Available)
+                    + MEMORY_REGIONS.count_by_type(memory::regions::MemoryRegionType::Reserved)
+            );
+
             // Print some region statistics
             for region_type in [
                 memory::regions::MemoryRegionType::Available,
@@ -323,45 +325,60 @@ pub extern "C" fn _start() -> ! {
                 }
             }
         }
-        
+
         // Update memory statistics
         let total_mem = unsafe { PMM.total_pages() * memory::PAGE_SIZE };
         let used_mem = unsafe { PMM.used_pages() * memory::PAGE_SIZE };
         memory::stats::stats().set_total_physical(total_mem);
         memory::stats::stats().set_used_physical(used_mem);
-        
+
         // Print memory statistics
         arch::serial_println!("[Fanga] Memory Statistics:");
-        arch::serial_println!("[Fanga]   Total Physical: {} MiB", total_mem / (1024 * 1024));
+        arch::serial_println!(
+            "[Fanga]   Total Physical: {} MiB",
+            total_mem / (1024 * 1024)
+        );
         arch::serial_println!("[Fanga]   Used Physical:  {} MiB", used_mem / (1024 * 1024));
-        arch::serial_println!("[Fanga]   Free Physical:  {} MiB", 
+        arch::serial_println!(
+            "[Fanga]   Free Physical:  {} MiB",
             (total_mem - used_mem) / (1024 * 1024)
         );
-        
+
         // Test VMM (Virtual Memory Manager)
         arch::serial_println!("[Fanga] Testing VMM...");
-        
+
         unsafe {
             // Create a new page table
             if let Some(mut mapper) = memory::PageTableMapper::new(&mut PMM, hhdm.offset()) {
-                arch::serial_println!("[Fanga] Created new page table at: 0x{:x}", mapper.pml4_addr());
-                
+                arch::serial_println!(
+                    "[Fanga] Created new page table at: 0x{:x}",
+                    mapper.pml4_addr()
+                );
+
                 // Test mapping: map virtual address 0x1000_0000 to a physical page
                 if let Some(test_phys) = PMM.alloc_page() {
                     arch::serial_println!("[Fanga] Allocated test page at: 0x{:x}", test_phys);
-                    
+
                     let test_virt = 0x1000_0000u64;
-                    let flags = memory::PageTableFlags::PRESENT
-                        .with(memory::PageTableFlags::WRITABLE);
-                    
+                    let flags =
+                        memory::PageTableFlags::PRESENT.with(memory::PageTableFlags::WRITABLE);
+
                     match mapper.map(test_virt, test_phys, flags, &mut PMM) {
                         Ok(()) => {
-                            arch::serial_println!("[Fanga] Mapped 0x{:x} -> 0x{:x}", test_virt, test_phys);
-                            
+                            arch::serial_println!(
+                                "[Fanga] Mapped 0x{:x} -> 0x{:x}",
+                                test_virt,
+                                test_phys
+                            );
+
                             // Test translation
                             if let Some(translated) = mapper.translate(test_virt) {
-                                arch::serial_println!("[Fanga] Translation: 0x{:x} -> 0x{:x}", test_virt, translated);
-                                
+                                arch::serial_println!(
+                                    "[Fanga] Translation: 0x{:x} -> 0x{:x}",
+                                    test_virt,
+                                    translated
+                                );
+
                                 if translated == test_phys {
                                     arch::serial_println!("[Fanga] Translation correct ✅");
                                 } else {
@@ -370,30 +387,40 @@ pub extern "C" fn _start() -> ! {
                             } else {
                                 arch::serial_println!("[Fanga] Translation failed ❌");
                             }
-                            
+
                             // Test unmapping
                             match mapper.unmap(test_virt) {
                                 Ok(unmapped_phys) => {
-                                    arch::serial_println!("[Fanga] Unmapped 0x{:x}, got phys: 0x{:x}", test_virt, unmapped_phys);
-                                    
+                                    arch::serial_println!(
+                                        "[Fanga] Unmapped 0x{:x}, got phys: 0x{:x}",
+                                        test_virt,
+                                        unmapped_phys
+                                    );
+
                                     if unmapped_phys == test_phys {
                                         arch::serial_println!("[Fanga] Unmap correct ✅");
                                     } else {
-                                        arch::serial_println!("[Fanga] Unmap returned wrong address ❌");
+                                        arch::serial_println!(
+                                            "[Fanga] Unmap returned wrong address ❌"
+                                        );
                                     }
-                                    
+
                                     // Verify translation returns None after unmap
                                     if mapper.translate(test_virt).is_none() {
-                                        arch::serial_println!("[Fanga] Translation after unmap: None (correct) ✅");
+                                        arch::serial_println!(
+                                            "[Fanga] Translation after unmap: None (correct) ✅"
+                                        );
                                     } else {
-                                        arch::serial_println!("[Fanga] Translation after unmap still works ❌");
+                                        arch::serial_println!(
+                                            "[Fanga] Translation after unmap still works ❌"
+                                        );
                                     }
                                 }
                                 Err(e) => {
                                     arch::serial_println!("[Fanga] Unmap failed: {}", e);
                                 }
                             }
-                            
+
                             // Free the test page
                             PMM.free_page(test_phys);
                             arch::serial_println!("[Fanga] Freed test page");
@@ -406,9 +433,9 @@ pub extern "C" fn _start() -> ! {
                 } else {
                     arch::serial_println!("[Fanga] Failed to allocate test page for VMM");
                 }
-                
+
                 arch::serial_println!("[Fanga] VMM test completed ✅");
-                
+
                 // Get current page table (CR3)
                 let current_cr3 = memory::PageTableMapper::current_cr3();
                 arch::serial_println!("[Fanga] Current CR3 (page table): 0x{:x}", current_cr3);
@@ -424,27 +451,29 @@ pub extern "C" fn _start() -> ! {
     arch::serial_println!("[Fanga] Initializing task scheduler...");
     task::scheduler::init();
     task::process::init();
-    
+
     // Initialize timer bridge for preemptive scheduling
     task::timer_bridge::init();
     arch::serial_println!("[Fanga] Task scheduler initialized ✅");
-    arch::serial_println!("[Fanga] Preemptive scheduling enabled (time slice: {}ms)", 
-        task::sched_timer::TIME_SLICE * 10);
-    
+    arch::serial_println!(
+        "[Fanga] Preemptive scheduling enabled (time slice: {}ms)",
+        task::sched_timer::TIME_SLICE * 10
+    );
+
     // Demonstrate process management system
     arch::serial_println!("");
     arch::serial_println!("===========================================");
     arch::serial_println!("   PROCESS MANAGEMENT DEMONSTRATION");
     arch::serial_println!("===========================================");
     arch::serial_println!("");
-    
+
     // Test 1: Basic task creation
     arch::serial_println!("[Test 1] Creating multiple tasks with different priorities...");
-    
+
     {
         let mut scheduler_guard = task::scheduler::scheduler();
         let scheduler = &mut *scheduler_guard;
-        
+
         // Create task 1 - Normal priority
         let mut task1 = task::Task::new(
             task::TaskId::new(0),
@@ -455,7 +484,7 @@ pub extern "C" fn _start() -> ! {
             task::TaskPriority::Normal,
         );
         task1.set_name("counter_task");
-        
+
         // Create task 2 - High priority
         let mut task2 = task::Task::new(
             task::TaskId::new(0),
@@ -466,7 +495,7 @@ pub extern "C" fn _start() -> ! {
             task::TaskPriority::High,
         );
         task2.set_name("compute_task");
-        
+
         // Create task 3 - Low priority
         let mut task3 = task::Task::new(
             task::TaskId::new(0),
@@ -477,33 +506,42 @@ pub extern "C" fn _start() -> ! {
             task::TaskPriority::Low,
         );
         task3.set_name("background_task");
-        
+
         // Add tasks to scheduler
         let id1 = scheduler.add_task(task1).expect("Failed to create task1");
-        arch::serial_println!("[Fanga]   Created task {:?}: counter_task (Normal priority)", id1);
-        
+        arch::serial_println!(
+            "[Fanga]   Created task {:?}: counter_task (Normal priority)",
+            id1
+        );
+
         let id2 = scheduler.add_task(task2).expect("Failed to create task2");
-        arch::serial_println!("[Fanga]   Created task {:?}: compute_task (High priority)", id2);
-        
+        arch::serial_println!(
+            "[Fanga]   Created task {:?}: compute_task (High priority)",
+            id2
+        );
+
         let id3 = scheduler.add_task(task3).expect("Failed to create task3");
-        arch::serial_println!("[Fanga]   Created task {:?}: background_task (Low priority)", id3);
-        
+        arch::serial_println!(
+            "[Fanga]   Created task {:?}: background_task (Low priority)",
+            id3
+        );
+
         arch::serial_println!("");
         arch::serial_println!("[Fanga] Total tasks: {}", scheduler.total_task_count());
         arch::serial_println!("[Fanga] Ready tasks: {}", scheduler.ready_task_count());
     }
-    
+
     // Test 2: Priority-based scheduling
     arch::serial_println!("");
     arch::serial_println!("[Test 2] Demonstrating priority-based scheduling...");
-    
+
     {
         let mut scheduler_guard = task::scheduler::scheduler();
         let scheduler = &mut *scheduler_guard;
-        
+
         for i in 0..5 {
             let (prev, next, switched) = scheduler.schedule();
-            
+
             if let Some(task_id) = next {
                 if let Some(task) = scheduler.get_task(task_id) {
                     arch::serial_println!(
@@ -517,78 +555,93 @@ pub extern "C" fn _start() -> ! {
             }
         }
     }
-    
+
     // Test 3: Process state transitions
     arch::serial_println!("");
     arch::serial_println!("[Test 3] Testing process state transitions...");
-    
+
     {
         let mut scheduler_guard = task::scheduler::scheduler();
         let scheduler = &mut *scheduler_guard;
-        
+
         // Get a task ID
         if let Some(task_id) = scheduler.current_task() {
             arch::serial_println!("[Fanga]   Current task: {:?}", task_id);
-            
+
             // Block the task
             scheduler.block_task(task_id).expect("Failed to block task");
             let task = scheduler.get_task(task_id).expect("Task not found");
             arch::serial_println!("[Fanga]   Task state after blocking: {:?}", task.state);
-            
+
             // Unblock the task
-            scheduler.unblock_task(task_id).expect("Failed to unblock task");
+            scheduler
+                .unblock_task(task_id)
+                .expect("Failed to unblock task");
             let task = scheduler.get_task(task_id).expect("Task not found");
             arch::serial_println!("[Fanga]   Task state after unblocking: {:?}", task.state);
         }
     }
-    
+
     // Test 4: Process termination
     arch::serial_println!("");
     arch::serial_println!("[Test 4] Testing process termination...");
-    
+
     {
         let mut scheduler_guard = task::scheduler::scheduler();
         let scheduler = &mut *scheduler_guard;
-        
+
         // Get the first task
         let (_, next, _) = scheduler.schedule();
         if let Some(task_id) = next {
-            let task_name = scheduler.get_task(task_id)
+            let task_name = scheduler
+                .get_task(task_id)
                 .map(|t| t.name())
                 .unwrap_or("<unknown>");
-            
+
             arch::serial_println!("[Fanga]   Terminating task {:?}: {}", task_id, task_name);
-            scheduler.terminate_task(task_id).expect("Failed to terminate task");
-            
+            scheduler
+                .terminate_task(task_id)
+                .expect("Failed to terminate task");
+
             let task = scheduler.get_task(task_id).expect("Task not found");
             arch::serial_println!("[Fanga]   Task state: {:?}", task.state);
-            
-            arch::serial_println!("[Fanga]   Remaining tasks: {}", scheduler.total_task_count());
+
+            arch::serial_println!(
+                "[Fanga]   Remaining tasks: {}",
+                scheduler.total_task_count()
+            );
         }
     }
-    
+
     arch::serial_println!("");
     arch::serial_println!("[Fanga] Process management demonstration completed ✅");
-    
+
     // Test IPC
     arch::serial_println!("");
     arch::serial_println!("[Test 5] Testing IPC mechanisms...");
-    
+
     use alloc::vec;
     let sender_id = task::TaskId::new(1);
     let mut msg_queue = task::MessageQueue::new(10);
-    
+
     let msg1 = task::Message::new(sender_id, vec![1, 2, 3, 4]).unwrap();
     let msg2 = task::Message::new(sender_id, vec![5, 6, 7, 8]).unwrap();
-    
+
     msg_queue.send(msg1).unwrap();
     msg_queue.send(msg2).unwrap();
-    arch::serial_println!("[Fanga]   Sent 2 messages, queue length: {}", msg_queue.len());
-    
+    arch::serial_println!(
+        "[Fanga]   Sent 2 messages, queue length: {}",
+        msg_queue.len()
+    );
+
     if let Some(msg) = msg_queue.receive() {
-        arch::serial_println!("[Fanga]   Received message from {:?}: {:?}", msg.sender, msg.data());
+        arch::serial_println!(
+            "[Fanga]   Received message from {:?}: {:?}",
+            msg.sender,
+            msg.data()
+        );
     }
-    
+
     arch::serial_println!("[Fanga] IPC test completed ✅");
 
     // Test the new console and logging system
@@ -597,12 +650,12 @@ pub extern "C" fn _start() -> ! {
     console_println!("    FangaOS - Operating System Kernel");
     console_println!("===========================================");
     console_println!();
-    
+
     log_info!("Console system initialized");
     log_info!("Logging framework active");
     log_info!("Task scheduler initialized");
     log_info!("Process management ready");
-    
+
     console_println!();
     console_println!("Kernel Features:");
     console_println!("  [x] Memory Management (PMM, VMM, Heap)");
@@ -620,7 +673,7 @@ pub extern "C" fn _start() -> ! {
     console_println!("Welcome to FangaOS Interactive Shell!");
     console_println!("Type 'help' for available commands.");
     console_println!();
-    
+
     // Show the initial prompt
     {
         let shell_guard = shell::shell();

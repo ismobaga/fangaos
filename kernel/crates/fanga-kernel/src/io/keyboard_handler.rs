@@ -1,11 +1,10 @@
+use crate::io::{framebuffer, line_editor};
+use crate::shell;
 /// Keyboard input handler with line editing
 ///
 /// This module handles keyboard input events, provides line editing functionality,
 /// and echoes input to the framebuffer console.
-
 use fanga_arch_x86_64::keyboard::{KeyCode, KeyEvent};
-use crate::io::{framebuffer, line_editor};
-use crate::shell;
 
 /// Handle a keyboard event
 pub fn handle_key_event(event: KeyEvent, kbd: &fanga_arch_x86_64::keyboard::Keyboard) {
@@ -126,7 +125,7 @@ fn handle_key_press(keycode: KeyCode, kbd: &fanga_arch_x86_64::keyboard::Keyboar
 /// Redraw the current line in the framebuffer
 fn redraw_line(editor: &line_editor::LineEditor) {
     let mut fb = framebuffer::framebuffer();
-    
+
     // Get prompt length
     let prompt_len = if shell::is_initialized() {
         let shell_guard = shell::shell();
@@ -138,10 +137,10 @@ fn redraw_line(editor: &line_editor::LineEditor) {
     } else {
         0
     };
-    
+
     // Redraw the entire line
     fb.redraw_line(0, editor.buffer());
-    
+
     // Update cursor position
     let row = fb.get_row();
     fb.set_position(prompt_len + editor.cursor(), row);
@@ -151,7 +150,7 @@ fn redraw_line(editor: &line_editor::LineEditor) {
 /// Update cursor position without redrawing the whole line
 fn update_cursor(editor: &line_editor::LineEditor) {
     let mut fb = framebuffer::framebuffer();
-    
+
     // Get prompt length
     let prompt_len = if shell::is_initialized() {
         let shell_guard = shell::shell();
@@ -163,7 +162,7 @@ fn update_cursor(editor: &line_editor::LineEditor) {
     } else {
         0
     };
-    
+
     // Redraw line to clear old cursor and show new position
     fb.redraw_line(0, editor.buffer());
     let row = fb.get_row();
@@ -175,7 +174,7 @@ fn update_cursor(editor: &line_editor::LineEditor) {
 fn handle_ctrl_c() {
     let mut fb = framebuffer::framebuffer();
     fb.write_string("^C\n");
-    
+
     // Clear the line editor
     let mut editor_guard = line_editor::editor();
     if let Some(editor) = editor_guard.as_mut() {
@@ -187,7 +186,7 @@ fn handle_ctrl_c() {
 fn handle_ctrl_d() {
     let mut fb = framebuffer::framebuffer();
     let editor_guard = line_editor::editor();
-    
+
     if let Some(editor) = editor_guard.as_ref() {
         if editor.is_empty() {
             // On empty line, Ctrl+D shows EOF
@@ -208,7 +207,7 @@ fn handle_ctrl_d() {
 /// Handle Enter key (submit line)
 fn handle_enter() {
     let mut fb = framebuffer::framebuffer();
-    
+
     // Get the completed line
     let line = {
         let editor_guard = line_editor::editor();
@@ -218,10 +217,10 @@ fn handle_enter() {
             alloc::string::String::new()
         }
     };
-    
+
     // Echo newline
     fb.write_string("\n");
-    
+
     // Process the line through the shell
     if shell::is_initialized() {
         // Add to history
@@ -231,7 +230,7 @@ fn handle_enter() {
                 history.add(line.clone());
             }
         }
-        
+
         // Execute the command
         if !line.trim().is_empty() {
             let mut shell_guard = shell::shell();
@@ -243,7 +242,7 @@ fn handle_enter() {
                 }
             }
         }
-        
+
         // Show prompt for next command
         let shell_guard = shell::shell();
         if let Some(shell) = shell_guard.as_ref() {
@@ -252,7 +251,7 @@ fn handle_enter() {
             }
         }
     }
-    
+
     // Clear the editor for next line
     let mut editor_guard = line_editor::editor();
     if let Some(editor) = editor_guard.as_mut() {
@@ -307,14 +306,14 @@ fn handle_tab_completion() {
             return;
         }
     };
-    
+
     // Only complete if we're at the beginning (completing command name)
     let trimmed = current_line.trim();
     if trimmed.contains(' ') {
         // Already has arguments, don't complete
         return;
     }
-    
+
     // Try to complete
     if let Some(completed) = shell::completion::complete_single(trimmed) {
         // Single match - complete it
@@ -337,13 +336,13 @@ fn handle_tab_completion() {
                 fb.write_string("  ");
             }
             fb.write_string("\n");
-            
+
             // Show prompt and current line again
             let shell_guard = shell::shell();
             if let Some(shell) = shell_guard.as_ref() {
                 fb.write_string(shell.prompt());
             }
-            
+
             let editor_guard = line_editor::editor();
             if let Some(editor) = editor_guard.as_ref() {
                 for ch in editor.buffer() {
