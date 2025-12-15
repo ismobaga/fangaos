@@ -126,6 +126,8 @@ extern "C" fn syscall_handler(
         SYS_OPEN => sys_open(arg1 as *const u8, arg2 as i32, arg3 as i32),
         SYS_CLOSE => sys_close(arg1 as i32),
         SYS_LSEEK => sys_lseek(arg1 as i32, arg2 as i64, arg3 as i32),
+        SYS_MMAP => sys_mmap(arg1 as u64, arg2 as usize, arg3 as i32, arg4 as i32, arg5 as i32, arg6 as i64),
+        SYS_MUNMAP => sys_munmap(arg1 as u64, arg2 as usize),
         SYS_EXIT => sys_exit(arg1 as i32),
         SYS_FORK => sys_fork(),
         SYS_EXEC => sys_exec(arg1 as *const u8, arg2 as *const *const u8),
@@ -270,6 +272,91 @@ fn sys_unlink(pathname: *const u8) -> i64 {
     crate::serial_println!("[SYSCALL] sys_unlink() - stub");
     // TODO: Implement with VFS
     ENOSYS
+}
+
+/// sys_mmap - Map memory region
+/// 
+/// # Arguments
+/// * `addr` - Requested address (or 0 for automatic)
+/// * `length` - Size of mapping in bytes
+/// * `prot` - Protection flags (PROT_READ, PROT_WRITE, PROT_EXEC)
+/// * `flags` - Mapping flags (MAP_SHARED, MAP_PRIVATE, MAP_ANONYMOUS, MAP_FIXED)
+/// * `fd` - File descriptor (ignored for MAP_ANONYMOUS)
+/// * `offset` - File offset (ignored for MAP_ANONYMOUS)
+///
+/// # Returns
+/// Virtual address of mapping on success, or negative error code
+fn sys_mmap(addr: u64, length: usize, prot: i32, flags: i32, _fd: i32, _offset: i64) -> i64 {
+    #[cfg(not(test))]
+    crate::serial_println!(
+        "[SYSCALL] sys_mmap(addr={:#x}, len={}, prot={:#x}, flags={:#x})",
+        addr, length, prot, flags
+    );
+
+    // Validate arguments
+    if length == 0 {
+        return EINVAL;
+    }
+
+    // For now, only support anonymous mappings
+    const MAP_ANONYMOUS: i32 = 0x20;
+    if (flags & MAP_ANONYMOUS) == 0 {
+        return ENOSYS; // File-backed mappings not yet implemented
+    }
+
+    // TODO: Implement actual mmap functionality
+    // This would involve:
+    // 1. Allocating physical pages
+    // 2. Setting up page table mappings
+    // 3. Recording the mapping in the process's mmap manager
+    // 4. Handling MAP_FIXED, MAP_SHARED, etc.
+    
+    // For now, return a dummy address in user space
+    // In a real implementation, this would be a proper allocated region
+    if addr == 0 {
+        // Automatic placement - return an address in user space
+        0x4000_0000 // Dummy address
+    } else {
+        // Fixed placement
+        addr as i64
+    }
+}
+
+/// sys_munmap - Unmap memory region
+///
+/// # Arguments
+/// * `addr` - Virtual address of mapping to unmap
+/// * `length` - Size of region to unmap
+///
+/// # Returns
+/// 0 on success, or negative error code
+fn sys_munmap(addr: u64, length: usize) -> i64 {
+    #[cfg(not(test))]
+    crate::serial_println!(
+        "[SYSCALL] sys_munmap(addr={:#x}, len={})",
+        addr, length
+    );
+
+    // Validate arguments
+    if length == 0 {
+        return EINVAL;
+    }
+
+    // Check alignment
+    const PAGE_SIZE: u64 = 4096;
+    if addr % PAGE_SIZE != 0 {
+        return EINVAL;
+    }
+
+    // TODO: Implement actual munmap functionality
+    // This would involve:
+    // 1. Finding the mapping in the process's mmap manager
+    // 2. Unmapping the pages from the page table
+    // 3. Freeing the physical pages (if not shared)
+    // 4. Removing the mapping record
+
+    // For now, just return success
+    0
 }
 
 /// sys_exit - Terminate the current process
@@ -704,5 +791,54 @@ mod tests {
     fn test_sys_shmget_basic() {
         let result = sys_shmget(1, 4096, 0);
         assert!(result > 0);
+    }
+    
+    #[test]
+    fn test_sys_mmap_anonymous() {
+        const MAP_ANONYMOUS: i32 = 0x20;
+        const PROT_READ: i32 = 0x1;
+        const PROT_WRITE: i32 = 0x2;
+        
+        let result = sys_mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_ANONYMOUS, -1, 0);
+        assert!(result > 0); // Should return a valid address
+    }
+    
+    #[test]
+    fn test_sys_mmap_zero_length() {
+        const MAP_ANONYMOUS: i32 = 0x20;
+        const PROT_READ: i32 = 0x1;
+        
+        let result = sys_mmap(0, 0, PROT_READ, MAP_ANONYMOUS, -1, 0);
+        assert_eq!(result, EINVAL);
+    }
+    
+    #[test]
+    fn test_sys_mmap_fixed_address() {
+        const MAP_ANONYMOUS: i32 = 0x20;
+        const MAP_FIXED: i32 = 0x10;
+        const PROT_READ: i32 = 0x1;
+        
+        let addr = 0x4000_0000u64;
+        let result = sys_mmap(addr, 4096, PROT_READ, MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        assert_eq!(result, addr as i64);
+    }
+    
+    #[test]
+    fn test_sys_munmap_valid() {
+        let addr = 0x4000_0000u64;
+        let result = sys_munmap(addr, 4096);
+        assert_eq!(result, 0);
+    }
+    
+    #[test]
+    fn test_sys_munmap_zero_length() {
+        let result = sys_munmap(0x4000_0000, 0);
+        assert_eq!(result, EINVAL);
+    }
+    
+    #[test]
+    fn test_sys_munmap_unaligned() {
+        let result = sys_munmap(0x4000_0001, 4096);
+        assert_eq!(result, EINVAL);
     }
 }

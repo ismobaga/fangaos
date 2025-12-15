@@ -11,6 +11,7 @@
 //! - Demand paging
 //! - Page replacement (LRU)
 //! - Swap support
+//! - Memory protection and guard pages
 
 pub mod addr;
 pub mod pmm;
@@ -23,6 +24,7 @@ pub mod cow;
 pub mod mmap;
 pub mod demand_paging;
 pub mod swap;
+pub mod protection;
 
 // Re-export commonly used types and functions
 pub use addr::{PhysAddr, VirtAddr, PAGE_SIZE, align_up, align_down};
@@ -36,6 +38,8 @@ pub use demand_paging::{PageState, record_page_access, get_lru_page, get_lru_sta
                          reserve_demand_pages, allocate_demand_page, get_page_state,
                          should_allocate_on_fault, get_demand_paging_stats};
 pub use swap::{init_swap, swap_out_page, swap_in_page, is_page_swapped, get_swap_stats, has_swap_space};
+pub use protection::{MemoryProtection, ProtectedRegion, add_guard_page, is_guard_page,
+                      add_protected_region, check_memory_access};
 
 /// Initialize memory management
 ///
