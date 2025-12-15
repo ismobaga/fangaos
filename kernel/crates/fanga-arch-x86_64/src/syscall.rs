@@ -44,6 +44,10 @@ pub const SYS_MSGGET: u64 = 68;
 pub const SYS_MSGSND: u64 = 69;
 pub const SYS_MSGRCV: u64 = 70;
 
+// Memory management syscalls
+pub const SYS_MMAP: u64 = 9;
+pub const SYS_MUNMAP: u64 = 11;
+
 /// Error codes (following POSIX conventions)
 pub const EINVAL: i64 = -22;  // Invalid argument
 pub const EBADF: i64 = -9;    // Bad file descriptor

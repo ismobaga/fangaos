@@ -28,6 +28,8 @@ impl PageTableFlags {
     pub const HUGE_PAGE: Self = Self(1 << 7);
     /// Page won't be flushed from TLB on CR3 reload
     pub const GLOBAL: Self = Self(1 << 8);
+    /// Copy-on-Write (uses available bit 9)
+    pub const COPY_ON_WRITE: Self = Self(1 << 9);
     /// Disable execution (NX bit, requires EFER.NXE)
     pub const NO_EXECUTE: Self = Self(1 << 63);
 
