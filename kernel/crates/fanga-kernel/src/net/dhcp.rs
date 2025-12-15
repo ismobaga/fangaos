@@ -255,7 +255,7 @@ impl DhcpClient {
     /// Handle received DHCP packet
     pub fn handle_packet(&mut self, _packet: &[u8]) -> Result<(), &'static str> {
         // TODO: Parse packet and handle based on state
-        Ok(())
+        Err("DHCP packet handling not implemented")
     }
 }
 
