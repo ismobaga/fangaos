@@ -97,7 +97,8 @@ fn test_history_empty_commands() {
 #[test]
 fn test_all_commands_have_completions() {
     // Make sure all commands are available for tab completion
-    let commands = ["help", "clear", "echo", "memory", "ps", "exit"];
+    let commands = ["help", "clear", "echo", "memory", "ps", "power", 
+                    "uptime", "uname", "ping", "reboot", "shutdown", "suspend", "exit"];
     
     for cmd in commands {
         let matches = completion::complete(cmd);

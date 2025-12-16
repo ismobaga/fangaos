@@ -23,12 +23,19 @@ Displays a list of available commands with brief descriptions.
 ```
 fangaos> help
 FangaOS Shell - Available Commands:
-  help    - Display this help message
-  clear   - Clear the screen
-  echo    - Echo arguments to screen
-  memory  - Display memory statistics
-  ps      - Display process/task list
-  exit    - Exit the shell
+  help     - Display this help message
+  clear    - Clear the screen
+  echo     - Echo arguments to screen
+  memory   - Display memory statistics
+  ps       - Display process/task list
+  power    - Display/control power management
+  uptime   - Show system uptime
+  uname    - Display system information
+  ping     - Send ICMP echo request (network)
+  reboot   - Reboot the system
+  shutdown - Power off the system
+  suspend  - Suspend system to low power state
+  exit     - Exit the shell
 ```
 
 #### `clear`
@@ -74,6 +81,75 @@ Task List:
   ----  ------------------  ----------  --------
   Total tasks: 3
   Ready tasks: 2
+```
+
+#### `power`
+Displays power management status and controls power settings. See the Power Management documentation for details.
+
+```
+fangaos> power
+Power Management Status:
+  ...
+  
+fangaos> power policy performance
+CPU scaling policy set to: Performance
+```
+
+#### `uptime`
+Shows system uptime in a human-readable format including days, hours, minutes, and seconds.
+
+```
+fangaos> uptime
+System Uptime:
+  0:15:42
+  Total: 942000 ms
+```
+
+#### `uname`
+Displays system information including kernel name, version, and architecture.
+
+```
+fangaos> uname
+FangaOS System Information:
+  Kernel Name:    FangaOS
+  Kernel Version: 0.1.0
+  Architecture:   x86_64
+  Machine:        PC (UEFI)
+```
+
+#### `ping`
+Sends ICMP echo requests to test network connectivity. Currently shows a stub message as ICMP is not fully implemented.
+
+```
+fangaos> ping 8.8.8.8
+PING 8.8.8.8...
+Error: Network stack not fully initialized
+ICMP protocol implementation pending
+```
+
+#### `reboot`
+Reboots the system using the keyboard controller reset method.
+
+```
+fangaos> reboot
+Rebooting system...
+```
+
+#### `shutdown`
+Powers off the system. Attempts QEMU/Bochs shutdown port for graceful shutdown in virtual environments.
+
+```
+fangaos> shutdown
+Shutting down system...
+```
+
+#### `suspend`
+Suspends the system to a low power state (S3 - Suspend to RAM).
+
+```
+fangaos> suspend
+Suspending system to S3 (Suspend to RAM)...
+System resumed from suspend.
 ```
 
 #### `exit`
@@ -162,6 +238,8 @@ The shell is integrated with the existing kernel infrastructure:
 3. **Framebuffer** (`io/framebuffer.rs`): Handles output to the screen
 4. **Scheduler** (`task/scheduler.rs`): Accessed by the `ps` command
 5. **Memory Stats** (`memory/stats.rs`): Accessed by the `memory` command
+6. **Power Management** (`power/`): Accessed by the `power`, `shutdown`, `reboot`, and `suspend` commands
+7. **Timer** (`fanga-arch-x86_64::interrupts::idt`): Accessed by the `uptime` command
 
 ### Initialization
 
@@ -242,15 +320,34 @@ Type 'help' for available commands.
 
 fangaos> help
 FangaOS Shell - Available Commands:
-  help    - Display this help message
-  clear   - Clear the screen
-  echo    - Echo arguments to screen
-  memory  - Display memory statistics
-  ps      - Display process/task list
-  exit    - Exit the shell
+  help     - Display this help message
+  clear    - Clear the screen
+  echo     - Echo arguments to screen
+  memory   - Display memory statistics
+  ps       - Display process/task list
+  power    - Display/control power management
+  uptime   - Show system uptime
+  uname    - Display system information
+  ping     - Send ICMP echo request (network)
+  reboot   - Reboot the system
+  shutdown - Power off the system
+  suspend  - Suspend system to low power state
+  exit     - Exit the shell
 
 fangaos> echo Hello from FangaOS!
 Hello from FangaOS!
+
+fangaos> uptime
+System Uptime:
+  0:15:42
+  Total: 942000 ms
+
+fangaos> uname
+FangaOS System Information:
+  Kernel Name:    FangaOS
+  Kernel Version: 0.1.0
+  Architecture:   x86_64
+  Machine:        PC (UEFI)
 
 fangaos> memory
 Memory Statistics:

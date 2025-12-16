@@ -24,6 +24,12 @@ pub fn execute(command: &str, args: Vec<&str>, shell: &mut super::Shell) -> Resu
         "memory" => cmd_memory(),
         "ps" => cmd_ps(),
         "power" => cmd_power(args),
+        "uptime" => cmd_uptime(),
+        "uname" => cmd_uname(),
+        "ping" => cmd_ping(args),
+        "reboot" => cmd_reboot(),
+        "shutdown" => cmd_shutdown(),
+        "suspend" => cmd_suspend(),
         "exit" => cmd_exit(shell),
         _ => {
             let mut fb = framebuffer::framebuffer();
@@ -40,13 +46,19 @@ pub fn execute(command: &str, args: Vec<&str>, shell: &mut super::Shell) -> Resu
 fn cmd_help() -> Result<(), &'static str> {
     let mut fb = framebuffer::framebuffer();
     fb.write_string("FangaOS Shell - Available Commands:\n");
-    fb.write_string("  help    - Display this help message\n");
-    fb.write_string("  clear   - Clear the screen\n");
-    fb.write_string("  echo    - Echo arguments to screen\n");
-    fb.write_string("  memory  - Display memory statistics\n");
-    fb.write_string("  ps      - Display process/task list\n");
-    fb.write_string("  power   - Display/control power management\n");
-    fb.write_string("  exit    - Exit the shell\n");
+    fb.write_string("  help     - Display this help message\n");
+    fb.write_string("  clear    - Clear the screen\n");
+    fb.write_string("  echo     - Echo arguments to screen\n");
+    fb.write_string("  memory   - Display memory statistics\n");
+    fb.write_string("  ps       - Display process/task list\n");
+    fb.write_string("  power    - Display/control power management\n");
+    fb.write_string("  uptime   - Show system uptime\n");
+    fb.write_string("  uname    - Display system information\n");
+    fb.write_string("  ping     - Send ICMP echo request (network)\n");
+    fb.write_string("  reboot   - Reboot the system\n");
+    fb.write_string("  shutdown - Power off the system\n");
+    fb.write_string("  suspend  - Suspend system to low power state\n");
+    fb.write_string("  exit     - Exit the shell\n");
     Ok(())
 }
 
@@ -347,4 +359,151 @@ fn cmd_power(args: Vec<&str>) -> Result<(), &'static str> {
     }
     
     Ok(())
+}
+
+/// Display system uptime
+fn cmd_uptime() -> Result<(), &'static str> {
+    let mut fb = framebuffer::framebuffer();
+    
+    // Get uptime from the timer interrupt handler
+    let uptime_ms = fanga_arch_x86_64::interrupts::idt::uptime_ms();
+    let uptime_secs = fanga_arch_x86_64::interrupts::idt::uptime_secs();
+    
+    fb.write_string("System Uptime:\n");
+    
+    // Calculate time components
+    let days = uptime_secs / 86400;
+    let hours = (uptime_secs % 86400) / 3600;
+    let minutes = (uptime_secs % 3600) / 60;
+    let seconds = uptime_secs % 60;
+    
+    fb.write_string("  ");
+    if days > 0 {
+        write_number(&mut fb, days as usize);
+        if days == 1 {
+            fb.write_string(" day, ");
+        } else {
+            fb.write_string(" days, ");
+        }
+    }
+    
+    write_number(&mut fb, hours as usize);
+    fb.write_string(":");
+    if minutes < 10 {
+        fb.write_string("0");
+    }
+    write_number(&mut fb, minutes as usize);
+    fb.write_string(":");
+    if seconds < 10 {
+        fb.write_string("0");
+    }
+    write_number(&mut fb, seconds as usize);
+    fb.write_string("\n");
+    
+    fb.write_string("  Total: ");
+    write_number(&mut fb, uptime_ms as usize);
+    fb.write_string(" ms\n");
+    
+    Ok(())
+}
+
+/// Display system information
+fn cmd_uname() -> Result<(), &'static str> {
+    let mut fb = framebuffer::framebuffer();
+    
+    fb.write_string("FangaOS System Information:\n");
+    fb.write_string("  Kernel Name:    FangaOS\n");
+    fb.write_string("  Kernel Version: 0.1.0\n");
+    fb.write_string("  Architecture:   x86_64\n");
+    fb.write_string("  Machine:        PC (UEFI)\n");
+    
+    Ok(())
+}
+
+/// Send ICMP echo request (ping)
+fn cmd_ping(args: Vec<&str>) -> Result<(), &'static str> {
+    let mut fb = framebuffer::framebuffer();
+    
+    if args.is_empty() {
+        fb.write_string("Usage: ping <hostname|ip>\n");
+        fb.write_string("Example: ping 8.8.8.8\n");
+        return Ok(());
+    }
+    
+    let target = args[0];
+    
+    fb.write_string("PING ");
+    fb.write_string(target);
+    fb.write_string("...\n");
+    fb.write_string("Error: Network stack not fully initialized\n");
+    fb.write_string("ICMP protocol implementation pending\n");
+    
+    Ok(())
+}
+
+/// Reboot the system
+fn cmd_reboot() -> Result<(), &'static str> {
+    let mut fb = framebuffer::framebuffer();
+    
+    fb.write_string("Rebooting system...\n");
+    
+    // Use keyboard controller reset method (standard on x86_64)
+    unsafe {
+        // Wait for keyboard controller to be ready
+        while (fanga_arch_x86_64::port::inb(0x64) & 0x02) != 0 {
+            core::hint::spin_loop();
+        }
+        
+        // Send reset command to keyboard controller
+        fanga_arch_x86_64::port::outb(0x64, 0xFE);
+    }
+    
+    // If we get here, reboot failed
+    fb.write_string("Reboot failed. System halted.\n");
+    loop {
+        unsafe {
+            core::arch::asm!("hlt", options(nostack, nomem));
+        }
+    }
+}
+
+/// Shutdown the system
+fn cmd_shutdown() -> Result<(), &'static str> {
+    let mut fb = framebuffer::framebuffer();
+    
+    fb.write_string("Shutting down system...\n");
+    
+    // Try QEMU/Bochs shutdown port
+    unsafe {
+        // QEMU and Bochs support this I/O port for shutdown
+        fanga_arch_x86_64::port::outw(0x604, 0x2000);
+    }
+    
+    // If we're still here, halt the system
+    fb.write_string("System halted.\n");
+    loop {
+        unsafe {
+            core::arch::asm!("hlt", options(nostack, nomem));
+        }
+    }
+}
+
+/// Suspend the system to low power state
+fn cmd_suspend() -> Result<(), &'static str> {
+    let mut fb = framebuffer::framebuffer();
+    
+    fb.write_string("Suspending system to S3 (Suspend to RAM)...\n");
+    
+    match power::suspend::suspend_to_ram() {
+        Ok(_) => {
+            fb.write_string("System resumed from suspend.\n");
+            Ok(())
+        }
+        Err(e) => {
+            fb.write_string("Failed to suspend: ");
+            fb.write_string(e);
+            fb.write_string("\n");
+            Ok(())
+        }
+    }
 }
