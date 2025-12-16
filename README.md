@@ -197,6 +197,7 @@ fangaos/
 ## Documentation
 
 - [Testing Guide](TESTING.md) - How to run and write tests
+- [Boot Sequence](docs/BOOT_SEQUENCE.md) - Kernel initialization and boot phases
 - [Memory Management](docs/MEMORY_MANAGEMENT.md) - Memory subsystem design
 - [Interrupt Handling](docs/INTERRUPT_HANDLING.md) - Interrupt architecture
 - [Timer Management](docs/TIMER_MANAGEMENT.md) - Timer and time management subsystem
