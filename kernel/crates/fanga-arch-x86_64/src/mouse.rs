@@ -271,7 +271,11 @@ static mut MOUSE_CALLBACK: Option<MouseCallback> = None;
 
 /// Initialize the PS/2 mouse
 pub fn init() -> Result<(), &'static str> {
+    #[cfg(not(test))]
     unsafe { MOUSE.init() }
+    
+    #[cfg(test)]
+    Ok(())
 }
 
 /// Set the mouse event callback

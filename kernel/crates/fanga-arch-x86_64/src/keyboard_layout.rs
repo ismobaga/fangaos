@@ -28,7 +28,7 @@ impl KeyboardLayout for UsLayout {
                 let should_uppercase = (shift && !caps_lock)
                     || (!shift && caps_lock && c.is_ascii_alphabetic());
 
-                if should_uppercase {
+                if should_uppercase && c.is_ascii_alphabetic() {
                     Some(c.to_ascii_uppercase())
                 } else if shift {
                     // Apply shift to symbols
@@ -82,7 +82,7 @@ impl KeyboardLayout for UkLayout {
                 let should_uppercase = (shift && !caps_lock)
                     || (!shift && caps_lock && c.is_ascii_alphabetic());
 
-                if should_uppercase {
+                if should_uppercase && c.is_ascii_alphabetic() {
                     Some(c.to_ascii_uppercase())
                 } else if shift {
                     // UK-specific symbol mappings
@@ -144,7 +144,7 @@ impl KeyboardLayout for DeLayout {
                 let should_uppercase = (shift && !caps_lock)
                     || (!shift && caps_lock && mapped_char.is_ascii_alphabetic());
 
-                if should_uppercase {
+                if should_uppercase && mapped_char.is_ascii_alphabetic() {
                     Some(mapped_char.to_ascii_uppercase())
                 } else if shift {
                     // German-specific symbol mappings
@@ -210,7 +210,7 @@ impl KeyboardLayout for FrLayout {
                 let should_uppercase = (shift && !caps_lock)
                     || (!shift && caps_lock && mapped_char.is_ascii_alphabetic());
 
-                if should_uppercase {
+                if should_uppercase && mapped_char.is_ascii_alphabetic() {
                     Some(mapped_char.to_ascii_uppercase())
                 } else if shift {
                     // French-specific symbol mappings
@@ -305,4 +305,47 @@ static mut LAYOUT_MANAGER: LayoutManager = LayoutManager::new();
 /// Get a mutable reference to the global layout manager
 pub fn layout_manager() -> &'static mut LayoutManager {
     unsafe { &mut LAYOUT_MANAGER }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::keyboard::KeyCode;
+    
+    #[test]
+    fn test_us_layout() {
+        let layout = UsLayout;
+        assert_eq!(layout.name(), "US");
+        // Test basic character without shift
+        assert_eq!(layout.to_char(KeyCode::Char('a'), false, false), Some('a'));
+        // Test with shift
+        assert_eq!(layout.to_char(KeyCode::Char('a'), true, false), Some('A'));
+        // Test number key
+        assert_eq!(layout.to_char(KeyCode::Char('1'), false, false), Some('1'));
+        // Test shifted number
+        assert_eq!(layout.to_char(KeyCode::Char('1'), true, false), Some('!'));
+    }
+    
+    #[test]
+    fn test_uk_layout() {
+        let layout = UkLayout;
+        assert_eq!(layout.name(), "UK");
+        // UK has different shift mappings
+        assert_eq!(layout.to_char(KeyCode::Char('a'), false, false), Some('a'));
+        assert_eq!(layout.to_char(KeyCode::Char('a'), true, false), Some('A'));
+    }
+    
+    #[test]
+    fn test_layout_manager() {
+        let mut mgr = LayoutManager::new();
+        assert_eq!(mgr.current_layout(), LayoutType::Us);
+        
+        mgr.set_layout(LayoutType::Uk);
+        assert_eq!(mgr.current_layout(), LayoutType::Uk);
+        assert_eq!(mgr.current_layout_name(), "UK");
+        
+        // Test conversion through manager
+        let result = mgr.to_char(KeyCode::Char('a'), false, false);
+        assert_eq!(result, Some('a'));
+    }
 }
