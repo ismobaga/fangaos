@@ -414,35 +414,38 @@ extern "x86-interrupt" fn spurious_irq_handler(_frame: InterruptStackFrame) {
 
 pub fn init() {
     unsafe {
+        // Get raw pointer to IDT
+        let idt_ptr = &raw mut IDT;
+        
         // Fill all with "missing"
-        for e in IDT.iter_mut() {
-            *e = IdtEntry::missing();
+        for i in 0..IDT_LEN {
+            (*idt_ptr)[i] = IdtEntry::missing();
         }
 
         // CPU Exceptions (0-21)
-        IDT[VEC_DIVIDE_ERROR as usize].set_handler(divide_error_handler as u64);
-        IDT[VEC_DEBUG as usize].set_handler(debug_handler as u64);
-        IDT[VEC_NMI as usize].set_handler(nmi_handler as u64);
-        IDT[VEC_BREAKPOINT as usize].set_handler(breakpoint_handler as u64);
-        IDT[VEC_OVERFLOW as usize].set_handler(overflow_handler as u64);
-        IDT[VEC_BOUND_RANGE as usize].set_handler(bound_range_handler as u64);
-        IDT[VEC_INVALID_OPCODE as usize].set_handler(invalid_opcode_handler as u64);
-        IDT[VEC_DEVICE_NOT_AVAILABLE as usize].set_handler(device_not_available_handler as u64);
-        IDT[VEC_DOUBLE_FAULT as usize].set_handler_with_ist(
+        (*idt_ptr)[VEC_DIVIDE_ERROR as usize].set_handler(divide_error_handler as u64);
+        (*idt_ptr)[VEC_DEBUG as usize].set_handler(debug_handler as u64);
+        (*idt_ptr)[VEC_NMI as usize].set_handler(nmi_handler as u64);
+        (*idt_ptr)[VEC_BREAKPOINT as usize].set_handler(breakpoint_handler as u64);
+        (*idt_ptr)[VEC_OVERFLOW as usize].set_handler(overflow_handler as u64);
+        (*idt_ptr)[VEC_BOUND_RANGE as usize].set_handler(bound_range_handler as u64);
+        (*idt_ptr)[VEC_INVALID_OPCODE as usize].set_handler(invalid_opcode_handler as u64);
+        (*idt_ptr)[VEC_DEVICE_NOT_AVAILABLE as usize].set_handler(device_not_available_handler as u64);
+        (*idt_ptr)[VEC_DOUBLE_FAULT as usize].set_handler_with_ist(
             double_fault_handler as u64,
             crate::gdt::DOUBLE_FAULT_IST_INDEX,
         );
-        IDT[VEC_INVALID_TSS as usize].set_handler(invalid_tss_handler as u64);
-        IDT[VEC_SEGMENT_NOT_PRESENT as usize].set_handler(segment_not_present_handler as u64);
-        IDT[VEC_STACK_FAULT as usize].set_handler(stack_fault_handler as u64);
-        IDT[VEC_GENERAL_PROTECTION as usize].set_handler(gp_fault_handler as u64);
-        IDT[VEC_PAGE_FAULT as usize].set_handler(page_fault_handler as u64);
-        IDT[VEC_X87_FPU as usize].set_handler(x87_fpu_handler as u64);
-        IDT[VEC_ALIGNMENT_CHECK as usize].set_handler(alignment_check_handler as u64);
-        IDT[VEC_MACHINE_CHECK as usize].set_handler(machine_check_handler as u64);
-        IDT[VEC_SIMD_FP as usize].set_handler(simd_fp_handler as u64);
-        IDT[VEC_VIRTUALIZATION as usize].set_handler(virtualization_handler as u64);
-        IDT[VEC_CONTROL_PROTECTION as usize].set_handler(control_protection_handler as u64);
+        (*idt_ptr)[VEC_INVALID_TSS as usize].set_handler(invalid_tss_handler as u64);
+        (*idt_ptr)[VEC_SEGMENT_NOT_PRESENT as usize].set_handler(segment_not_present_handler as u64);
+        (*idt_ptr)[VEC_STACK_FAULT as usize].set_handler(stack_fault_handler as u64);
+        (*idt_ptr)[VEC_GENERAL_PROTECTION as usize].set_handler(gp_fault_handler as u64);
+        (*idt_ptr)[VEC_PAGE_FAULT as usize].set_handler(page_fault_handler as u64);
+        (*idt_ptr)[VEC_X87_FPU as usize].set_handler(x87_fpu_handler as u64);
+        (*idt_ptr)[VEC_ALIGNMENT_CHECK as usize].set_handler(alignment_check_handler as u64);
+        (*idt_ptr)[VEC_MACHINE_CHECK as usize].set_handler(machine_check_handler as u64);
+        (*idt_ptr)[VEC_SIMD_FP as usize].set_handler(simd_fp_handler as u64);
+        (*idt_ptr)[VEC_VIRTUALIZATION as usize].set_handler(virtualization_handler as u64);
+        (*idt_ptr)[VEC_CONTROL_PROTECTION as usize].set_handler(control_protection_handler as u64);
 
         // PIC remap + enable timer/keyboard only
         pic::remap(PIC1_OFFSET, PIC2_OFFSET);
@@ -455,17 +458,17 @@ pub fn init() {
         serial_println!("[PIT] Configured to {} Hz", crate::interrupts::pit::PIT_DEFAULT_FREQ);
 
         // IRQ handlers (after remap)
-        IDT[(PIC1_OFFSET + IRQ_TIMER) as usize].set_handler(timer_irq_handler as u64);
-        IDT[(PIC1_OFFSET + IRQ_KEYBOARD) as usize].set_handler(keyboard_irq_handler as u64);
-        IDT[(PIC2_OFFSET + IRQ_PS2_MOUSE - 8) as usize].set_handler(mouse_irq_handler as u64);
+        (*idt_ptr)[(PIC1_OFFSET + IRQ_TIMER) as usize].set_handler(timer_irq_handler as u64);
+        (*idt_ptr)[(PIC1_OFFSET + IRQ_KEYBOARD) as usize].set_handler(keyboard_irq_handler as u64);
+        (*idt_ptr)[(PIC2_OFFSET + IRQ_PS2_MOUSE - 8) as usize].set_handler(mouse_irq_handler as u64);
         
         // Set spurious IRQ handler for PIC1 IRQ7 and PIC2 IRQ15
-        IDT[(PIC1_OFFSET + 7) as usize].set_handler(spurious_irq_handler as u64);
-        IDT[(PIC2_OFFSET + 15) as usize].set_handler(spurious_irq_handler as u64);
+        (*idt_ptr)[(PIC1_OFFSET + 7) as usize].set_handler(spurious_irq_handler as u64);
+        (*idt_ptr)[(PIC2_OFFSET + 15) as usize].set_handler(spurious_irq_handler as u64);
 
         let idtr = Idtr {
             limit: (core::mem::size_of::<[IdtEntry; IDT_LEN]>() - 1) as u16,
-            base: (&raw const IDT as *const _) as u64,
+            base: idt_ptr as u64,
         };
 
         lidt(&idtr);
