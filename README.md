@@ -198,6 +198,7 @@ fangaos/
 - [Virtual File System](docs/VFS.md) - VFS architecture and file operations
 - [Storage and File Systems](docs/STORAGE.md) - Disk drivers, partitions, FAT32, and caching
 - [User Space Support](docs/USER_SPACE.md) - User mode applications, ELF loader, and minimal libc
+- [Networking](docs/NETWORKING.md) - Network stack, protocols, drivers, and socket API
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
 ## Development
@@ -306,9 +307,17 @@ FangaOS is currently in active development. Core features implemented:
   - ✅ Minimal libc with syscall wrappers
   - ✅ User-space application support
   - ✅ Sample user applications
+- ✅ Networking
+  - ✅ E1000 network card driver structure
+  - ✅ Ethernet frame handling
+  - ✅ ARP protocol implementation
+  - ✅ IPv4 stack with routing
+  - ✅ UDP protocol (connectionless)
+  - ✅ TCP protocol (connection-oriented) with state machine
+  - ✅ BSD-style socket API
+  - ✅ DHCP client structure
 - 🚧 Process management (in progress)
 - 🚧 Dynamic linking (planned)
-- 🚧 Networking (planned)
 
 ## Resources
 

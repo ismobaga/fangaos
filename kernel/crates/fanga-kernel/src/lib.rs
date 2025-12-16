@@ -33,3 +33,6 @@ pub mod elf;
 
 // User space support
 pub mod userspace;
+
+// Networking module (E1000 driver, Ethernet, ARP, IPv4, UDP, TCP, sockets, DHCP)
+pub mod net;
