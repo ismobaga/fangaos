@@ -17,6 +17,7 @@ mod io;
 mod memory;
 mod shell;
 mod task;
+mod power;
 
 /* -------------------------------------------------------------------------- */
 /*                             GLOBAL ALLOCATOR                                */
@@ -459,6 +460,10 @@ pub extern "C" fn _start() -> ! {
         "[Fanga] Preemptive scheduling enabled (time slice: {}ms)",
         task::sched_timer::TIME_SLICE * 10
     );
+
+    // Initialize power management
+    power::init();
+    arch::serial_println!("[Fanga] Power management initialized ✅");
 
     // Demonstrate process management system
     arch::serial_println!("");

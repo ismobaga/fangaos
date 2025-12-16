@@ -39,3 +39,6 @@ pub mod userspace;
 
 // Networking module (E1000 driver, Ethernet, ARP, IPv4, UDP, TCP, sockets, DHCP)
 pub mod net;
+
+// Power management module
+pub mod power;

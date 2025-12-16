@@ -28,6 +28,15 @@ A modern x86_64 operating system kernel written in Rust.
   - Preemptive multitasking with time slicing
   - Timer-based scheduler integration
 
+- **Power Management**
+  - CPU frequency scaling (P-states: P0-P3)
+  - CPU idle states (C-states: C0-C3)
+  - Device power states (D0-D3) following ACPI spec
+  - System suspend/resume (S1, S3 states)
+  - Hibernate support (S4 state)
+  - Battery monitoring and management
+  - Power-aware shell commands
+
 - **System Calls**
   - SYSCALL/SYSRET instruction support
   - Basic syscalls (read, write, exit, fork, exec)
@@ -52,7 +61,7 @@ A modern x86_64 operating system kernel written in Rust.
 
 - **Interactive Shell**
   - Command parser with argument support
-  - Built-in commands (help, clear, echo, memory, ps, exit)
+  - Built-in commands (help, clear, echo, memory, ps, power, exit)
   - Command history with up/down arrow navigation
   - Tab completion for command names
   - Customizable prompt
@@ -191,6 +200,7 @@ fangaos/
 - [Memory Management](docs/MEMORY_MANAGEMENT.md) - Memory subsystem design
 - [Interrupt Handling](docs/INTERRUPT_HANDLING.md) - Interrupt architecture
 - [Timer Management](docs/TIMER_MANAGEMENT.md) - Timer and time management subsystem
+- [Power Management](docs/POWER_MANAGEMENT.md) - CPU, device, suspend/resume, hibernate, and battery management
 - [Input/Output](docs/INPUT_OUTPUT.md) - I/O subsystem design
 - [System Calls](docs/SYSTEM_CALLS.md) - System call interface
 - [Inter-Process Communication](docs/IPC.md) - IPC mechanisms and usage
@@ -277,6 +287,13 @@ FangaOS is currently in active development. Core features implemented:
 - ✅ Preemptive scheduling (time-slice based, priority queues)
 - ✅ Basic I/O (framebuffer, serial, keyboard)
 - ✅ System calls (syscall/sysret interface)
+- ✅ Power Management
+  - ✅ CPU frequency scaling (P-states)
+  - ✅ CPU idle states (C-states)
+  - ✅ Device power states (D0-D3)
+  - ✅ System suspend/resume (S1, S3)
+  - ✅ Hibernate support (S4)
+  - ✅ Battery management
 - ✅ Inter-Process Communication (IPC)
   - ✅ Message queues
   - ✅ Pipes (anonymous)

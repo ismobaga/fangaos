@@ -12,6 +12,7 @@ const COMMANDS: &[&str] = &[
     "exit",
     "help",
     "memory",
+    "power",
     "ps",
 ];
 
