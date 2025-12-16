@@ -389,6 +389,21 @@ extern "x86-interrupt" fn keyboard_irq_handler(_frame: InterruptStackFrame) {
     }
 }
 
+extern "x86-interrupt" fn mouse_irq_handler(_frame: InterruptStackFrame) {
+    // Read byte from PS/2 data port 0x60
+    let mouse = crate::mouse::mouse();
+    let byte = unsafe { crate::port::inb(0x60) };
+    
+    if let Some(packet) = mouse.process_byte(byte) {
+        // Dispatch to callback if registered
+        crate::mouse::dispatch_packet(packet);
+    }
+    
+    unsafe {
+        pic::eoi(IRQ_PS2_MOUSE);
+    }
+}
+
 // Generic spurious IRQ handler
 extern "x86-interrupt" fn spurious_irq_handler(_frame: InterruptStackFrame) {
     serial_println!("[IRQ] Spurious interrupt detected");
@@ -431,8 +446,9 @@ pub fn init() {
 
         // PIC remap + enable timer/keyboard only
         pic::remap(PIC1_OFFSET, PIC2_OFFSET);
-        // Mask bits: 1 = masked(disabled). Enable IRQ0 & IRQ1 => mask others.
-        pic::set_masks(0b1111_1100, 0b1111_1111);
+        // Mask bits: 1 = masked(disabled). Enable IRQ0, IRQ1, IRQ12 (mouse) => mask others.
+        // IRQ12 is on PIC2, so we unmask bit 4 (12-8=4) on PIC2
+        pic::set_masks(0b1111_1100, 0b1110_1111);
         
         // Initialize PIT timer
         crate::interrupts::pit::init(crate::interrupts::pit::PIT_DEFAULT_FREQ);
@@ -441,6 +457,7 @@ pub fn init() {
         // IRQ handlers (after remap)
         IDT[(PIC1_OFFSET + IRQ_TIMER) as usize].set_handler(timer_irq_handler as u64);
         IDT[(PIC1_OFFSET + IRQ_KEYBOARD) as usize].set_handler(keyboard_irq_handler as u64);
+        IDT[(PIC2_OFFSET + IRQ_PS2_MOUSE - 8) as usize].set_handler(mouse_irq_handler as u64);
         
         // Set spurious IRQ handler for PIC1 IRQ7 and PIC2 IRQ15
         IDT[(PIC1_OFFSET + 7) as usize].set_handler(spurious_irq_handler as u64);

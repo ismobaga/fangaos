@@ -19,6 +19,9 @@ pub mod syscall_handlers;
 // IO module
 pub mod io;
 
+// USB module
+pub mod usb;
+
 // Shell module
 pub mod shell;
 

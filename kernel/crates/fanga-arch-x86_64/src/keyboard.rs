@@ -202,49 +202,11 @@ impl Keyboard {
     }
 
     /// Convert a keycode to ASCII character, applying shift/caps lock
+    /// Uses the current keyboard layout
     pub fn to_ascii(&self, keycode: KeyCode) -> Option<char> {
-        match keycode {
-            KeyCode::Char(c) => {
-                let should_uppercase = (self.shift_pressed && !self.caps_lock)
-                    || (!self.shift_pressed && self.caps_lock && c.is_ascii_alphabetic());
-
-                if should_uppercase {
-                    Some(c.to_ascii_uppercase())
-                } else if self.shift_pressed {
-                    // Apply shift to symbols
-                    match c {
-                        '1' => Some('!'),
-                        '2' => Some('@'),
-                        '3' => Some('#'),
-                        '4' => Some('$'),
-                        '5' => Some('%'),
-                        '6' => Some('^'),
-                        '7' => Some('&'),
-                        '8' => Some('*'),
-                        '9' => Some('('),
-                        '0' => Some(')'),
-                        '-' => Some('_'),
-                        '=' => Some('+'),
-                        '[' => Some('{'),
-                        ']' => Some('}'),
-                        ';' => Some(':'),
-                        '\'' => Some('"'),
-                        '`' => Some('~'),
-                        '\\' => Some('|'),
-                        ',' => Some('<'),
-                        '.' => Some('>'),
-                        '/' => Some('?'),
-                        _ => Some(c),
-                    }
-                } else {
-                    Some(c)
-                }
-            }
-            KeyCode::Backspace => Some('\x08'),
-            KeyCode::Enter => Some('\n'),
-            KeyCode::Tab => Some('\t'),
-            _ => None,
-        }
+        use crate::keyboard_layout;
+        let layout_mgr = keyboard_layout::layout_manager();
+        layout_mgr.to_char(keycode, self.shift_pressed, self.caps_lock)
     }
 
     pub fn is_shift_pressed(&self) -> bool {
