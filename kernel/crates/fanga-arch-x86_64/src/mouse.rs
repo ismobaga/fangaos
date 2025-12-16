@@ -261,6 +261,9 @@ impl Mouse {
 }
 
 /// Global mouse state
+/// Note: This is accessed from interrupt context (IRQ12 handler).
+/// The mouse is initialized once at boot and then only read/updated from the
+/// interrupt handler, making the single-threaded access safe.
 static mut MOUSE: Mouse = Mouse::new();
 
 /// Type for mouse event callback

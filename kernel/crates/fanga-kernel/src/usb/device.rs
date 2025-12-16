@@ -78,7 +78,8 @@ impl UsbDevice {
     /// Check if device is a keyboard
     pub fn is_keyboard(&self) -> bool {
         if let Some(desc) = &self.descriptor {
-            desc.device_class == 0x03 && desc.device_subclass == 0x01 // HID Boot Interface
+            // HID class with Boot Interface subclass and keyboard protocol
+            desc.device_class == 0x03 && desc.device_subclass == 0x01 && desc.device_protocol == 0x01
         } else {
             false
         }
@@ -87,7 +88,8 @@ impl UsbDevice {
     /// Check if device is a mouse
     pub fn is_mouse(&self) -> bool {
         if let Some(desc) = &self.descriptor {
-            desc.device_class == 0x03 && desc.device_subclass == 0x01 // HID Boot Interface
+            // HID class with Boot Interface subclass and mouse protocol
+            desc.device_class == 0x03 && desc.device_subclass == 0x01 && desc.device_protocol == 0x02
         } else {
             false
         }

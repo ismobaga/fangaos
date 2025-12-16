@@ -4,6 +4,7 @@
 /// input devices.
 
 use alloc::vec::Vec;
+use spin::Mutex;
 use super::{DeviceAddress, EndpointNum};
 
 /// HID subclass codes
@@ -172,34 +173,30 @@ pub type HidKeyboardCallback = fn(HidKeyboardEvent);
 /// Callback type for HID mouse events
 pub type HidMouseCallback = fn(HidMouseEvent);
 
-/// Global HID event callbacks
-static mut KEYBOARD_CALLBACK: Option<HidKeyboardCallback> = None;
-static mut MOUSE_CALLBACK: Option<HidMouseCallback> = None;
+/// Global HID event callbacks (protected with Mutex for thread safety)
+static KEYBOARD_CALLBACK: Mutex<Option<HidKeyboardCallback>> = Mutex::new(None);
+static MOUSE_CALLBACK: Mutex<Option<HidMouseCallback>> = Mutex::new(None);
 
 /// Set HID keyboard callback
-pub unsafe fn set_keyboard_callback(callback: HidKeyboardCallback) {
-    KEYBOARD_CALLBACK = Some(callback);
+pub fn set_keyboard_callback(callback: HidKeyboardCallback) {
+    *KEYBOARD_CALLBACK.lock() = Some(callback);
 }
 
 /// Set HID mouse callback
-pub unsafe fn set_mouse_callback(callback: HidMouseCallback) {
-    MOUSE_CALLBACK = Some(callback);
+pub fn set_mouse_callback(callback: HidMouseCallback) {
+    *MOUSE_CALLBACK.lock() = Some(callback);
 }
 
 /// Dispatch keyboard event
 pub(crate) fn dispatch_keyboard_event(event: HidKeyboardEvent) {
-    unsafe {
-        if let Some(callback) = KEYBOARD_CALLBACK {
-            callback(event);
-        }
+    if let Some(callback) = *KEYBOARD_CALLBACK.lock() {
+        callback(event);
     }
 }
 
 /// Dispatch mouse event
 pub(crate) fn dispatch_mouse_event(event: HidMouseEvent) {
-    unsafe {
-        if let Some(callback) = MOUSE_CALLBACK {
-            callback(event);
-        }
+    if let Some(callback) = *MOUSE_CALLBACK.lock() {
+        callback(event);
     }
 }

@@ -147,19 +147,19 @@ impl VirtualTerminal {
     
     /// Scroll screen content up by one line
     fn scroll_up(&mut self) {
-        // Save first line to history
+        // Save first line to history (preserve full content)
         let mut line = String::new();
         for col in 0..self.max_cols {
             let (ch, _, _) = self.screen_buffer[col];
-            if ch != ' ' {
-                line.push(ch);
-            }
+            line.push(ch);
         }
-        if !line.is_empty() {
+        // Trim trailing spaces but keep internal spacing
+        let trimmed = line.trim_end();
+        if !trimmed.is_empty() {
             if self.history.len() >= HISTORY_SIZE {
                 self.history.remove(0);
             }
-            self.history.push(line);
+            self.history.push(String::from(trimmed));
         }
         
         // Shift all rows up

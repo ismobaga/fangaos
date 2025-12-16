@@ -4,7 +4,6 @@
 /// including UHCI, OHCI, EHCI, and XHCI support.
 
 use alloc::vec::Vec;
-// use alloc::boxed::Box;
 use spin::Mutex;
 
 use super::{DeviceAddress, EndpointNum, TransferType, UsbSpeed};

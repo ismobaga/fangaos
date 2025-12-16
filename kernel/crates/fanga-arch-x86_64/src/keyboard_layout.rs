@@ -196,14 +196,15 @@ impl KeyboardLayout for FrLayout {
         match keycode {
             KeyCode::Char(c) => {
                 // French layout (AZERTY) has significantly different layout
+                // Physical key mappings (not character transformations)
                 let mapped_char = match c {
-                    'q' => 'a', // AZERTY remapping
-                    'w' => 'z',
-                    'a' => 'q',
-                    'z' => 'w',
-                    'm' => ',', // M becomes comma
-                    ',' => ';',
-                    ';' => 'm',
+                    'q' => 'a', // AZERTY: physical Q key produces 'a'
+                    'w' => 'z', // AZERTY: physical W key produces 'z'
+                    'a' => 'q', // AZERTY: physical A key produces 'q'
+                    'z' => 'w', // AZERTY: physical Z key produces 'w'
+                    'm' => ',', // AZERTY: physical M key produces ','
+                    ',' => ';', // AZERTY: physical comma key produces ';'
+                    ';' => 'm', // AZERTY: physical semicolon key produces 'm'
                     _ => c,
                 };
                 
@@ -300,6 +301,9 @@ impl LayoutManager {
 }
 
 /// Global layout manager
+/// Note: This is accessed from interrupt context, so we use a simple static.
+/// The layout is typically set once during initialization and then only read,
+/// making this safe. Future improvements could use a lock-free atomic pointer.
 static mut LAYOUT_MANAGER: LayoutManager = LayoutManager::new();
 
 /// Get a mutable reference to the global layout manager
