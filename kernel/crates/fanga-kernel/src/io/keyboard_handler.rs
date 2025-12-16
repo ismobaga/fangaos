@@ -17,6 +17,62 @@ pub fn handle_key_event(event: KeyEvent, kbd: &fanga_arch_x86_64::keyboard::Keyb
 /// Handle a key press event
 fn handle_key_press(keycode: KeyCode, kbd: &fanga_arch_x86_64::keyboard::Keyboard) {
     // Handle special key combinations first
+    
+    // Alt+F1 through Alt+F12 for virtual terminal switching
+    if kbd.is_alt_pressed() {
+        match keycode {
+            KeyCode::F1 => {
+                crate::io::vt::switch_terminal(0);
+                return;
+            }
+            KeyCode::F2 => {
+                crate::io::vt::switch_terminal(1);
+                return;
+            }
+            KeyCode::F3 => {
+                crate::io::vt::switch_terminal(2);
+                return;
+            }
+            KeyCode::F4 => {
+                crate::io::vt::switch_terminal(3);
+                return;
+            }
+            KeyCode::F5 => {
+                crate::io::vt::switch_terminal(4);
+                return;
+            }
+            KeyCode::F6 => {
+                crate::io::vt::switch_terminal(5);
+                return;
+            }
+            KeyCode::F7 => {
+                crate::io::vt::switch_terminal(6);
+                return;
+            }
+            KeyCode::F8 => {
+                crate::io::vt::switch_terminal(7);
+                return;
+            }
+            KeyCode::F9 => {
+                crate::io::vt::switch_terminal(8);
+                return;
+            }
+            KeyCode::F10 => {
+                crate::io::vt::switch_terminal(9);
+                return;
+            }
+            KeyCode::F11 => {
+                crate::io::vt::switch_terminal(10);
+                return;
+            }
+            KeyCode::F12 => {
+                crate::io::vt::switch_terminal(11);
+                return;
+            }
+            _ => {}
+        }
+    }
+    
     if kbd.is_ctrl_pressed() {
         match keycode {
             KeyCode::Char('c') | KeyCode::Char('C') => {
