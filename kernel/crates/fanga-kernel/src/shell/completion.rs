@@ -12,8 +12,14 @@ const COMMANDS: &[&str] = &[
     "exit",
     "help",
     "memory",
+    "ping",
     "power",
     "ps",
+    "reboot",
+    "shutdown",
+    "suspend",
+    "uname",
+    "uptime",
 ];
 
 /// Find completions for a partial command
