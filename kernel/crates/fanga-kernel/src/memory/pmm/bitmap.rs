@@ -59,7 +59,14 @@ impl PhysicalMemoryManager {
     /// * `hhdm_offset` - Higher Half Direct Map offset for virtual addressing
     ///
     /// # Safety
-    /// This function must be called exactly once during kernel initialization
+    /// This function must be called exactly once during kernel initialization.
+    /// The unsafe is required because this function:
+    /// 1. Writes to raw pointers (bitmap allocation and initialization)
+    /// 2. Performs volatile memory operations on the bitmap
+    /// 3. Must not be called concurrently during initialization
+    /// 
+    /// While the Mutex provides thread safety for the internal state, the raw
+    /// pointer operations and memory map traversal still require unsafe.
     pub unsafe fn init(&self, memmap: &limine::response::MemoryMapResponse, hhdm_offset: u64) {
         let mut inner = self.inner.lock();
         

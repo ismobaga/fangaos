@@ -164,7 +164,7 @@ pub fn local_apic() -> Option<&'static Apic> {
 
 /// Check if APIC is available and enabled
 pub fn is_available() -> bool {
-    LOCAL_APIC.get().map_or(false, |apic: &Apic| apic.is_enabled())
+    LOCAL_APIC.get().map_or(false, |apic| apic.is_enabled())
 }
 
 /// Send EOI using APIC (if available) or fall back to PIC

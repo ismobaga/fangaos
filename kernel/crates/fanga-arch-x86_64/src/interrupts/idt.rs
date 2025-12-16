@@ -414,7 +414,12 @@ extern "x86-interrupt" fn spurious_irq_handler(_frame: InterruptStackFrame) {
 
 pub fn init() {
     unsafe {
-        // Get raw pointer to IDT
+        // Use raw pointers instead of mutable references to avoid creating
+        // mutable references to static mut, which is UB and will be a hard
+        // error in Rust 2024 edition. Raw pointers are safe here because:
+        // 1. This is called only once during boot
+        // 2. No other code accesses IDT during initialization
+        // 3. We're not creating aliasing mutable references
         let idt_ptr = &raw mut IDT;
         
         // Fill all with "missing"
