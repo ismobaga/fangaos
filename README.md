@@ -334,7 +334,28 @@ FangaOS is currently in active development. Core features implemented:
   - ✅ TCP protocol (connection-oriented) with state machine
   - ✅ BSD-style socket API
   - ✅ DHCP client structure
-- 🚧 Process management (in progress)
+- ✅ Advanced Process Management (Production-Ready)
+  - ✅ Multi-threading (kernel and user threads)
+  - ✅ Thread-local storage (TLS)
+  - ✅ Real-time scheduling (RT_FIFO, RT_RR, Deadline)
+  - ✅ CPU affinity for threads
+  - ✅ Advanced synchronization primitives
+    - ✅ Condition variables
+    - ✅ Read-write locks (RwLock)
+    - ✅ Synchronization barriers
+  - ✅ Process groups and sessions
+  - ✅ Job control (foreground/background)
+  - ✅ Controlling terminal
+  - ✅ Advanced signal handling
+    - ✅ Signal actions (sigaction)
+    - ✅ Signal masks (sigprocmask)
+    - ✅ Real-time signal queuing
+    - ✅ Signal delivery to process groups
+  - ✅ Core dump support
+    - ✅ Process state capture
+    - ✅ Register dumps
+    - ✅ Memory region dumps
+    - ✅ Core dump management
 - 🚧 Dynamic linking (planned)
 
 ## Resources
