@@ -473,20 +473,10 @@ fn cmd_shutdown() -> Result<(), &'static str> {
     
     fb.write_string("Shutting down system...\n");
     
-    // Attempt ACPI shutdown via power management
-    match power::suspend::suspend_to_ram() {
-        Ok(_) => {
-            // suspend_to_ram doesn't actually shut down, just use as fallback
-            fb.write_string("Suspend successful.\n");
-        }
-        Err(_) => {
-            // Fallback: Try QEMU/Bochs shutdown port
-            fb.write_string("Trying QEMU/Bochs shutdown port...\n");
-            unsafe {
-                // QEMU and Bochs support this I/O port for shutdown
-                fanga_arch_x86_64::port::outw(0x604, 0x2000);
-            }
-        }
+    // Try QEMU/Bochs shutdown port
+    unsafe {
+        // QEMU and Bochs support this I/O port for shutdown
+        fanga_arch_x86_64::port::outw(0x604, 0x2000);
     }
     
     // If we're still here, halt the system
