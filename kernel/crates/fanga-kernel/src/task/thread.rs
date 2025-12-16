@@ -200,7 +200,7 @@ impl ThreadManager {
         
         Self {
             threads,
-            next_thread_id: 1,
+            next_thread_id: 0,
             max_threads,
         }
     }
@@ -265,7 +265,7 @@ impl ThreadManager {
             .filter_map(|(idx, thread_opt)| {
                 thread_opt.as_ref().and_then(|thread| {
                     if thread.process_id == process_id && thread.state != TaskState::Terminated {
-                        Some(ThreadId::new(idx))
+                        Some(thread.id)
                     } else {
                         None
                     }
@@ -333,7 +333,7 @@ mod tests {
             ThreadAttributes::default(),
         ).unwrap();
         
-        assert_eq!(thread_id, ThreadId::new(1));
+        assert_eq!(thread_id, ThreadId::new(0));
         assert_eq!(manager.thread_count(), 1);
         
         let thread = manager.get_thread(thread_id).unwrap();

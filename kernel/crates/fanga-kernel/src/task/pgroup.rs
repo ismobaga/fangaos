@@ -260,13 +260,16 @@ impl ProcessGroupManager {
     /// Create a new session with the given process as leader
     /// The process becomes the session leader and process group leader
     pub fn create_session(&mut self, leader: TaskId) -> Result<SessionId, &'static str> {
-        // Check if process is already a session/group leader
+        // Check if process is already in a process group
+        // According to POSIX, only processes that are not group leaders can create new sessions
         if let Some(pgid) = self.process_to_group.get(&leader) {
             if let Some(group) = self.process_groups.get(pgid) {
                 if group.leader == leader {
                     return Err("Process is already a process group leader");
                 }
             }
+            // Process is a member but not leader - should not create session
+            return Err("Process is already in a process group");
         }
         
         let sid = SessionId::new(self.next_sid);
