@@ -195,17 +195,23 @@ pub fn init() {
         // The stack grows downward, so we need the address after the last byte
         let stack_start = &raw const DOUBLE_FAULT_STACK as *const u8 as u64;
         let stack_top = stack_start + DOUBLE_FAULT_STACK_SIZE as u64;
-        TSS.ist1 = stack_top;
+        
+        // Use raw pointer to write to TSS
+        let tss_ptr = &raw mut TSS;
+        (*tss_ptr).ist1 = stack_top;
 
         // Create TSS descriptor
-        let tss_addr = &raw const TSS as *const _ as u64;
+        let tss_addr = tss_ptr as *const _ as u64;
         let tss_limit = size_of::<Tss>() as u32 - 1;
-        GDT.tss = TssEntry::new(tss_addr, tss_limit);
+        
+        // Use raw pointer to write to GDT
+        let gdt_ptr = &raw mut GDT;
+        (*gdt_ptr).tss = TssEntry::new(tss_addr, tss_limit);
 
         // Load GDT
         let gdtr = Gdtr {
             limit: (size_of::<GdtTable>() - 1) as u16,
-            base: &raw const GDT as *const _ as u64,
+            base: gdt_ptr as *const _ as u64,
         };
         lgdt(&gdtr);
 

@@ -46,7 +46,7 @@ pub use protection::{MemoryProtection, ProtectedRegion, add_guard_page, is_guard
 /// This should be called early in kernel initialization after the bootloader
 /// has provided the memory map.
 pub fn init_pmm(
-    pmm: &mut PhysicalMemoryManager,
+    pmm: &PhysicalMemoryManager,
     memmap: &limine::response::MemoryMapResponse,
     hhdm_offset: u64,
 ) {
@@ -58,7 +58,7 @@ pub fn init_pmm(
 /// Allocate a physical frame (4 KiB page)
 ///
 /// Returns the physical address of the allocated frame, or None if out of memory.
-pub fn alloc_frame(pmm: &mut PhysicalMemoryManager) -> Option<u64> {
+pub fn alloc_frame(pmm: &PhysicalMemoryManager) -> Option<u64> {
     pmm.alloc_page()
 }
 
@@ -66,7 +66,7 @@ pub fn alloc_frame(pmm: &mut PhysicalMemoryManager) -> Option<u64> {
 ///
 /// # Safety
 /// The caller must ensure that the frame is no longer in use.
-pub unsafe fn free_frame(pmm: &mut PhysicalMemoryManager, addr: u64) {
+pub unsafe fn free_frame(pmm: &PhysicalMemoryManager, addr: u64) {
     pmm.free_page(addr);
 }
 
