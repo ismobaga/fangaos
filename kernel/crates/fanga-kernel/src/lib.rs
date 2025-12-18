@@ -42,3 +42,15 @@ pub mod net;
 
 // Power management module
 pub mod power;
+
+// SMP (Symmetric Multi-Processing) support
+pub mod smp;
+
+// NUMA (Non-Uniform Memory Access) support
+pub mod numa;
+
+// Performance profiling
+pub mod profiling;
+
+// Kernel preemption
+pub mod preempt;

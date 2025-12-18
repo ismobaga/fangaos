@@ -318,6 +318,29 @@ pub fn phase5_subsystem_init() {
     power::init();
     arch::serial_println!("[Boot Phase 5] Power management initialized");
 
+    // SMP support
+    if let Ok(()) = crate::smp::init() {
+        arch::serial_println!("[Boot Phase 5] SMP support initialized");
+    } else {
+        arch::serial_println!("[Boot Phase 5] SMP initialization skipped (single CPU mode)");
+    }
+
+    // NUMA support
+    if let Ok(()) = crate::numa::init() {
+        arch::serial_println!("[Boot Phase 5] NUMA support initialized");
+    } else {
+        arch::serial_println!("[Boot Phase 5] NUMA initialization skipped");
+    }
+
+    // Performance profiling
+    if let Ok(()) = crate::profiling::init() {
+        arch::serial_println!("[Boot Phase 5] Performance profiling initialized");
+    }
+
+    // Kernel preemption
+    crate::preempt::init();
+    arch::serial_println!("[Boot Phase 5] Kernel preemption enabled");
+
     arch::serial_println!("[Boot Phase 5] Subsystem initialization complete ✅");
 }
 
