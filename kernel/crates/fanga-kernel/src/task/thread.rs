@@ -54,6 +54,10 @@ pub struct ThreadAttributes {
     /// CPU affinity (None means no affinity)
     pub cpu_affinity: Option<usize>,
     
+    /// CPU affinity mask (bitmask for multiple CPUs)
+    /// If set, overrides cpu_affinity
+    pub cpu_affinity_mask: Option<u64>,
+    
     /// Real-time scheduling policy
     pub rt_policy: RtSchedulingPolicy,
 }
@@ -65,7 +69,35 @@ impl Default for ThreadAttributes {
             stack_size: 8192, // 8 KB default stack
             thread_type: ThreadType::Kernel,
             cpu_affinity: None,
+            cpu_affinity_mask: None,
             rt_policy: RtSchedulingPolicy::Normal,
+        }
+    }
+}
+
+impl ThreadAttributes {
+    /// Set CPU affinity to a specific CPU
+    pub fn with_cpu_affinity(mut self, cpu: usize) -> Self {
+        self.cpu_affinity = Some(cpu);
+        self.cpu_affinity_mask = Some(1u64 << cpu);
+        self
+    }
+    
+    /// Set CPU affinity mask (multiple CPUs)
+    pub fn with_affinity_mask(mut self, mask: u64) -> Self {
+        self.cpu_affinity_mask = Some(mask);
+        self.cpu_affinity = None;
+        self
+    }
+    
+    /// Check if thread can run on a specific CPU
+    pub fn can_run_on_cpu(&self, cpu_id: usize) -> bool {
+        if let Some(mask) = self.cpu_affinity_mask {
+            (mask & (1u64 << cpu_id)) != 0
+        } else if let Some(affinity) = self.cpu_affinity {
+            affinity == cpu_id
+        } else {
+            true // No affinity set, can run on any CPU
         }
     }
 }
