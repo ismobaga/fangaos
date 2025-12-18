@@ -335,16 +335,42 @@ extern "x86-interrupt" fn control_protection_handler(frame: InterruptStackFrame,
 
 // --------- IRQ Handlers (PIC) ---------
 
-static mut TIMER_TICKS: u64 = 0;
+use core::sync::atomic::{AtomicU64, Ordering};
+
+static TIMER_TICKS: AtomicU64 = AtomicU64::new(0);
+
+/// Type alias for timer interrupt callback
+pub type TimerCallback = fn();
+
+/// Optional callback to invoke on each timer tick
+static mut TIMER_CALLBACK: Option<TimerCallback> = None;
+
+/// Register a callback to be invoked on each timer interrupt
+///
+/// # Safety
+/// The caller must ensure that the callback:
+/// - Is safe to call from interrupt context
+/// - Does not perform blocking operations
+/// - Completes quickly to avoid blocking other interrupts
+pub unsafe fn set_timer_callback(callback: TimerCallback) {
+    TIMER_CALLBACK = Some(callback);
+}
 
 extern "x86-interrupt" fn timer_irq_handler(_frame: InterruptStackFrame) {
+    TIMER_TICKS.fetch_add(1, Ordering::Relaxed);
+    
+    // Send EOI early to ensure timely interrupt acknowledgment
+    // This allows nested timer interrupts if needed
     unsafe {
-        TIMER_TICKS = TIMER_TICKS.wrapping_add(1);
-        // Print every ~18.2 seconds (PIT default frequency)
-        if TIMER_TICKS % (18 * 1000) == 0 {
-            // serial_println!("[IRQ] Timer tick: {}", TIMER_TICKS);
-        }
         pic::eoi(IRQ_TIMER);
+    }
+    
+    // Call registered callback if present
+    // Note: Callback should complete quickly to avoid blocking other interrupts
+    unsafe {
+        if let Some(callback) = TIMER_CALLBACK {
+            callback();
+        }
     }
 }
 
@@ -354,18 +380,27 @@ extern "x86-interrupt" fn keyboard_irq_handler(_frame: InterruptStackFrame) {
     let scancode = kbd.read_scancode();
     
     if let Some(event) = kbd.process_scancode(scancode) {
-        // Only handle key presses for now
-        if let crate::keyboard::KeyEvent::Press(keycode) = event {
-            if let Some(ascii) = kbd.to_ascii(keycode) {
-                serial_println!("[Keyboard] '{}'", ascii);
-            } else {
-                serial_println!("[Keyboard] {:?}", keycode);
-            }
-        }
+        // Dispatch to callback if registered
+        crate::keyboard::dispatch_event(event, kbd);
     }
     
     unsafe {
         pic::eoi(IRQ_KEYBOARD);
+    }
+}
+
+extern "x86-interrupt" fn mouse_irq_handler(_frame: InterruptStackFrame) {
+    // Read byte from PS/2 data port 0x60
+    let mouse = crate::mouse::mouse();
+    let byte = unsafe { crate::port::inb(0x60) };
+    
+    if let Some(packet) = mouse.process_byte(byte) {
+        // Dispatch to callback if registered
+        crate::mouse::dispatch_packet(packet);
+    }
+    
+    unsafe {
+        pic::eoi(IRQ_PS2_MOUSE);
     }
 }
 
@@ -379,52 +414,66 @@ extern "x86-interrupt" fn spurious_irq_handler(_frame: InterruptStackFrame) {
 
 pub fn init() {
     unsafe {
+        // Use raw pointers instead of mutable references to avoid creating
+        // mutable references to static mut, which is UB and will be a hard
+        // error in Rust 2024 edition. Raw pointers are safe here because:
+        // 1. This is called only once during boot
+        // 2. No other code accesses IDT during initialization
+        // 3. We're not creating aliasing mutable references
+        let idt_ptr = &raw mut IDT;
+        
         // Fill all with "missing"
-        for e in IDT.iter_mut() {
-            *e = IdtEntry::missing();
+        for i in 0..IDT_LEN {
+            (*idt_ptr)[i] = IdtEntry::missing();
         }
 
         // CPU Exceptions (0-21)
-        IDT[VEC_DIVIDE_ERROR as usize].set_handler(divide_error_handler as u64);
-        IDT[VEC_DEBUG as usize].set_handler(debug_handler as u64);
-        IDT[VEC_NMI as usize].set_handler(nmi_handler as u64);
-        IDT[VEC_BREAKPOINT as usize].set_handler(breakpoint_handler as u64);
-        IDT[VEC_OVERFLOW as usize].set_handler(overflow_handler as u64);
-        IDT[VEC_BOUND_RANGE as usize].set_handler(bound_range_handler as u64);
-        IDT[VEC_INVALID_OPCODE as usize].set_handler(invalid_opcode_handler as u64);
-        IDT[VEC_DEVICE_NOT_AVAILABLE as usize].set_handler(device_not_available_handler as u64);
-        IDT[VEC_DOUBLE_FAULT as usize].set_handler_with_ist(
+        (*idt_ptr)[VEC_DIVIDE_ERROR as usize].set_handler(divide_error_handler as u64);
+        (*idt_ptr)[VEC_DEBUG as usize].set_handler(debug_handler as u64);
+        (*idt_ptr)[VEC_NMI as usize].set_handler(nmi_handler as u64);
+        (*idt_ptr)[VEC_BREAKPOINT as usize].set_handler(breakpoint_handler as u64);
+        (*idt_ptr)[VEC_OVERFLOW as usize].set_handler(overflow_handler as u64);
+        (*idt_ptr)[VEC_BOUND_RANGE as usize].set_handler(bound_range_handler as u64);
+        (*idt_ptr)[VEC_INVALID_OPCODE as usize].set_handler(invalid_opcode_handler as u64);
+        (*idt_ptr)[VEC_DEVICE_NOT_AVAILABLE as usize].set_handler(device_not_available_handler as u64);
+        (*idt_ptr)[VEC_DOUBLE_FAULT as usize].set_handler_with_ist(
             double_fault_handler as u64,
             crate::gdt::DOUBLE_FAULT_IST_INDEX,
         );
-        IDT[VEC_INVALID_TSS as usize].set_handler(invalid_tss_handler as u64);
-        IDT[VEC_SEGMENT_NOT_PRESENT as usize].set_handler(segment_not_present_handler as u64);
-        IDT[VEC_STACK_FAULT as usize].set_handler(stack_fault_handler as u64);
-        IDT[VEC_GENERAL_PROTECTION as usize].set_handler(gp_fault_handler as u64);
-        IDT[VEC_PAGE_FAULT as usize].set_handler(page_fault_handler as u64);
-        IDT[VEC_X87_FPU as usize].set_handler(x87_fpu_handler as u64);
-        IDT[VEC_ALIGNMENT_CHECK as usize].set_handler(alignment_check_handler as u64);
-        IDT[VEC_MACHINE_CHECK as usize].set_handler(machine_check_handler as u64);
-        IDT[VEC_SIMD_FP as usize].set_handler(simd_fp_handler as u64);
-        IDT[VEC_VIRTUALIZATION as usize].set_handler(virtualization_handler as u64);
-        IDT[VEC_CONTROL_PROTECTION as usize].set_handler(control_protection_handler as u64);
+        (*idt_ptr)[VEC_INVALID_TSS as usize].set_handler(invalid_tss_handler as u64);
+        (*idt_ptr)[VEC_SEGMENT_NOT_PRESENT as usize].set_handler(segment_not_present_handler as u64);
+        (*idt_ptr)[VEC_STACK_FAULT as usize].set_handler(stack_fault_handler as u64);
+        (*idt_ptr)[VEC_GENERAL_PROTECTION as usize].set_handler(gp_fault_handler as u64);
+        (*idt_ptr)[VEC_PAGE_FAULT as usize].set_handler(page_fault_handler as u64);
+        (*idt_ptr)[VEC_X87_FPU as usize].set_handler(x87_fpu_handler as u64);
+        (*idt_ptr)[VEC_ALIGNMENT_CHECK as usize].set_handler(alignment_check_handler as u64);
+        (*idt_ptr)[VEC_MACHINE_CHECK as usize].set_handler(machine_check_handler as u64);
+        (*idt_ptr)[VEC_SIMD_FP as usize].set_handler(simd_fp_handler as u64);
+        (*idt_ptr)[VEC_VIRTUALIZATION as usize].set_handler(virtualization_handler as u64);
+        (*idt_ptr)[VEC_CONTROL_PROTECTION as usize].set_handler(control_protection_handler as u64);
 
         // PIC remap + enable timer/keyboard only
         pic::remap(PIC1_OFFSET, PIC2_OFFSET);
-        // Mask bits: 1 = masked(disabled). Enable IRQ0 & IRQ1 => mask others.
-        pic::set_masks(0b1111_1100, 0b1111_1111);
+        // Mask bits: 1 = masked(disabled). Enable IRQ0, IRQ1, IRQ12 (mouse) => mask others.
+        // IRQ12 is on PIC2, so we unmask bit 4 (12-8=4) on PIC2
+        pic::set_masks(0b1111_1100, 0b1110_1111);
+        
+        // Initialize PIT timer
+        crate::interrupts::pit::init(crate::interrupts::pit::PIT_DEFAULT_FREQ);
+        serial_println!("[PIT] Configured to {} Hz", crate::interrupts::pit::PIT_DEFAULT_FREQ);
 
         // IRQ handlers (after remap)
-        IDT[(PIC1_OFFSET + IRQ_TIMER) as usize].set_handler(timer_irq_handler as u64);
-        IDT[(PIC1_OFFSET + IRQ_KEYBOARD) as usize].set_handler(keyboard_irq_handler as u64);
+        (*idt_ptr)[(PIC1_OFFSET + IRQ_TIMER) as usize].set_handler(timer_irq_handler as u64);
+        (*idt_ptr)[(PIC1_OFFSET + IRQ_KEYBOARD) as usize].set_handler(keyboard_irq_handler as u64);
+        (*idt_ptr)[(PIC2_OFFSET + IRQ_PS2_MOUSE - 8) as usize].set_handler(mouse_irq_handler as u64);
         
         // Set spurious IRQ handler for PIC1 IRQ7 and PIC2 IRQ15
-        IDT[(PIC1_OFFSET + 7) as usize].set_handler(spurious_irq_handler as u64);
-        IDT[(PIC2_OFFSET + 15) as usize].set_handler(spurious_irq_handler as u64);
+        (*idt_ptr)[(PIC1_OFFSET + 7) as usize].set_handler(spurious_irq_handler as u64);
+        (*idt_ptr)[(PIC2_OFFSET + 15) as usize].set_handler(spurious_irq_handler as u64);
 
         let idtr = Idtr {
             limit: (core::mem::size_of::<[IdtEntry; IDT_LEN]>() - 1) as u16,
-            base: (&raw const IDT as *const _) as u64,
+            base: idt_ptr as u64,
         };
 
         lidt(&idtr);
@@ -435,5 +484,19 @@ pub fn init() {
 
 /// Get the current timer tick count
 pub fn timer_ticks() -> u64 {
-    unsafe { TIMER_TICKS }
+    TIMER_TICKS.load(Ordering::Relaxed)
+}
+
+/// Get system uptime in milliseconds
+/// 
+/// Based on the configured PIT frequency (100 Hz = 10ms per tick)
+pub fn uptime_ms() -> u64 {
+    let ticks = timer_ticks();
+    // With 100 Hz timer, each tick is 10ms
+    ticks * 10
+}
+
+/// Get system uptime in seconds
+pub fn uptime_secs() -> u64 {
+    uptime_ms() / 1000
 }

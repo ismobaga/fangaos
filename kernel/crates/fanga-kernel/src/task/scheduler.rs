@@ -13,7 +13,8 @@ use super::tcb::{Task, TaskId, TaskState, TaskPriority};
 use spin::Mutex;
 
 /// Maximum number of tasks the scheduler can manage
-pub const MAX_TASKS: usize = 256;
+/// With 8KB heap, we can support ~32 tasks (each Task is ~240 bytes)
+pub const MAX_TASKS: usize = 32;
 
 /// Scheduler implementation
 pub struct Scheduler {
@@ -48,9 +49,20 @@ impl Scheduler {
     
     /// Initialize the scheduler with capacity
     pub fn init(&mut self) {
-        self.tasks = Vec::with_capacity(MAX_TASKS);
-        for _ in 0..MAX_TASKS {
-            self.tasks.push(None);
+        // Clear and reserve space for tasks
+        self.tasks.clear();
+        if MAX_TASKS > 0 {
+            self.tasks.reserve(MAX_TASKS);
+            for _ in 0..MAX_TASKS {
+                self.tasks.push(None);
+            }
+        }
+        
+        // Initialize ready queues with capacity to avoid 0-byte allocation panics
+        // Clear existing queues and reserve capacity for each
+        for queue in &mut self.ready_queues {
+            queue.clear();
+            queue.reserve(16);
         }
     }
     
@@ -203,17 +215,16 @@ impl Scheduler {
 }
 
 /// Global scheduler instance
-static SCHEDULER: Mutex<Option<Scheduler>> = Mutex::new(None);
+static SCHEDULER: Mutex<Scheduler> = Mutex::new(Scheduler::new());
 
 /// Initialize the global scheduler
 pub fn init() {
-    let mut scheduler = Scheduler::new();
-    scheduler.init();
-    *SCHEDULER.lock() = Some(scheduler);
+    let mut scheduler_guard = SCHEDULER.lock();
+    scheduler_guard.init();
 }
 
 /// Get a reference to the global scheduler
-pub fn scheduler() -> spin::MutexGuard<'static, Option<Scheduler>> {
+pub fn scheduler() -> spin::MutexGuard<'static, Scheduler> {
     SCHEDULER.lock()
 }
 

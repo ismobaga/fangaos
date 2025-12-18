@@ -6,6 +6,7 @@
 
 use crate::serial_println;
 use core::arch::asm;
+use spin::Once;
 
 /// APIC base address (typically 0xFEE00000)
 const APIC_BASE_MSR: u32 = 0x1B;
@@ -146,32 +147,30 @@ impl Apic {
 }
 
 /// Global APIC instance
-static mut LOCAL_APIC: Apic = Apic::new();
+static LOCAL_APIC: Once<Apic> = Once::new();
 
 /// Initialize the Local APIC
 pub fn init() -> Result<(), &'static str> {
-    unsafe {
-        LOCAL_APIC.init()
-    }
+    let mut apic = Apic::new();
+    let result = apic.init();
+    LOCAL_APIC.call_once(|| apic);
+    result
 }
 
 /// Get a reference to the Local APIC
-pub fn local_apic() -> &'static Apic {
-    unsafe { &LOCAL_APIC }
+pub fn local_apic() -> Option<&'static Apic> {
+    LOCAL_APIC.get()
 }
 
 /// Check if APIC is available and enabled
 pub fn is_available() -> bool {
-    unsafe { LOCAL_APIC.is_enabled() }
+    LOCAL_APIC.get().map_or(false, |apic| apic.is_enabled())
 }
 
 /// Send EOI using APIC (if available) or fall back to PIC
 pub fn eoi(irq: u8) {
-    unsafe {
-        if LOCAL_APIC.is_enabled() {
-            LOCAL_APIC.eoi();
-        } else {
-            crate::interrupts::pic::eoi(irq);
-        }
+    match LOCAL_APIC.get() {
+        Some(apic) if apic.is_enabled() => apic.eoi(),
+        _ => unsafe { crate::interrupts::pic::eoi(irq); }
     }
 }

@@ -21,6 +21,27 @@ pub unsafe fn inb(port: u16) -> u8 {
     value
 }
 
+/// Writes a word (16-bit) to the specified I/O port.
+///
+/// # Safety
+/// This function is unsafe because writing to arbitrary I/O ports can cause
+/// undefined behavior, system instability, or hardware damage if the port
+/// and value are not valid for the system.
+pub unsafe fn outw(port: u16, value: u16) {
+    asm!("out dx, ax", in("dx") port, in("ax") value, options(nomem, nostack, preserves_flags));
+}
+
+/// Reads a word (16-bit) from the specified I/O port.
+///
+/// # Safety
+/// This function is unsafe because reading from arbitrary I/O ports can cause
+/// undefined behavior or system instability if the port is not valid for the system.
+pub unsafe fn inw(port: u16) -> u16 {
+    let value: u16;
+    asm!("in ax, dx", in("dx") port, out("ax") value, options(nomem, nostack, preserves_flags));
+    value
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -43,5 +64,7 @@ mod tests {
         // Functions should be available (this ensures they're public)
         let _outb_fn = outb;
         let _inb_fn = inb;
+        let _outw_fn = outw;
+        let _inw_fn = inw;
     }
 }

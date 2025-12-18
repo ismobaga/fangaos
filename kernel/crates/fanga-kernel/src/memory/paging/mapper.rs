@@ -25,7 +25,7 @@ impl PageTableMapper {
     /// - The PMM is properly initialized and can allocate pages
     /// - The HHDM offset is valid and maps to accessible kernel memory
     /// - The allocated page is properly cleared and won't be accessed by other code
-    pub unsafe fn new(pmm: &mut PhysicalMemoryManager, hhdm_offset: u64) -> Option<Self> {
+    pub unsafe fn new(pmm: &PhysicalMemoryManager, hhdm_offset: u64) -> Option<Self> {
         // Allocate a page for PML4
         let pml4_phys = pmm.alloc_page()?;
         
@@ -67,7 +67,7 @@ impl PageTableMapper {
     unsafe fn get_or_create_table(
         &mut self,
         entry: &mut PageTableEntry,
-        pmm: &mut PhysicalMemoryManager,
+        pmm: &PhysicalMemoryManager,
     ) -> Option<*mut PageTable> {
         if !entry.is_present() {
             let phys = pmm.alloc_page()?;
@@ -93,7 +93,7 @@ impl PageTableMapper {
         virt_addr: u64,
         phys_addr: u64,
         flags: PageTableFlags,
-        pmm: &mut PhysicalMemoryManager,
+        pmm: &PhysicalMemoryManager,
     ) -> Result<(), &'static str> {
         if virt_addr % PAGE_SIZE as u64 != 0 || phys_addr % PAGE_SIZE as u64 != 0 {
             return Err("Addresses must be page-aligned");

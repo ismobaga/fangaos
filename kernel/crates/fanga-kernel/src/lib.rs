@@ -14,7 +14,31 @@ extern crate alloc;
 pub mod memory;
 pub mod task;
 pub mod syscall;
+pub mod syscall_handlers;
 
-// IO module only available in no_std builds
-#[cfg(not(test))]
+// IO module
 pub mod io;
+
+// USB module
+pub mod usb;
+
+// Shell module
+pub mod shell;
+
+// File system module
+pub mod fs;
+
+// Storage module (ATA/AHCI, partitions, FAT32, caching)
+pub mod storage;
+
+// ELF loader module
+pub mod elf;
+
+// User space support
+pub mod userspace;
+
+// Networking module (E1000 driver, Ethernet, ARP, IPv4, UDP, TCP, sockets, DHCP)
+pub mod net;
+
+// Power management module
+pub mod power;

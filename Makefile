@@ -32,7 +32,6 @@ run-x86_64: ovmf/ovmf-code-$(KARCH).fd ovmf/ovmf-vars-$(KARCH).fd $(IMAGE_NAME).
 		-drive if=pflash,unit=0,format=raw,file=ovmf/ovmf-code-$(KARCH).fd,readonly=on \
 		-drive if=pflash,unit=1,format=raw,file=ovmf/ovmf-vars-$(KARCH).fd \
 		-cdrom $(IMAGE_NAME).iso \
-
 		$(QEMUFLAGS)
 # 		-display none \
 # 		-boot d \
@@ -137,7 +136,6 @@ run-bios: $(IMAGE_NAME).iso
 		-cdrom $(IMAGE_NAME).iso \
 		-boot d \
 		-serial stdio \
-
 		$(QEMUFLAGS)
 
 .PHONY: run-hdd-bios

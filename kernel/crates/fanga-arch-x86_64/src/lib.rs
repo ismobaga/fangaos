@@ -4,6 +4,8 @@
 pub mod gdt;
 pub mod interrupts;
 pub mod keyboard;
+pub mod keyboard_layout;
+pub mod mouse;
 pub mod port;
 pub mod serial;
 pub mod context;

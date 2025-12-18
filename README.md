@@ -19,18 +19,68 @@ A modern x86_64 operating system kernel written in Rust.
   - Exception handlers
   - Hardware interrupt support (PIC and APIC)
   - Keyboard input handling
+  - Timer interrupts (PIT)
+
+- **Timer and Time Management**
+  - Programmable Interval Timer (PIT) configuration
+  - System uptime tracking (ticks, milliseconds, seconds)
+  - Delay and sleep functions
+  - Preemptive multitasking with time slicing
+  - Timer-based scheduler integration
+
+- **Power Management**
+  - CPU frequency scaling (P-states: P0-P3)
+  - CPU idle states (C-states: C0-C3)
+  - Device power states (D0-D3) following ACPI spec
+  - System suspend/resume (S1, S3 states)
+  - Hibernate support (S4 state)
+  - Battery monitoring and management
+  - Power-aware shell commands
 
 - **System Calls**
   - SYSCALL/SYSRET instruction support
-  - Basic syscalls (read, write, exit)
+  - Basic syscalls (read, write, exit, fork, exec)
+  - IPC syscalls (pipe, kill, shmget, shmat, shmdt, shmctl, msgget, msgsnd, msgrcv)
   - Syscall argument validation
   - Error handling and return codes
+
+- **Inter-Process Communication (IPC)**
+  - Message queues with FIFO ordering
+  - Pipes for unidirectional data streams
+  - Shared memory segments with reference counting
+  - POSIX-like signals for asynchronous notifications
+  - Synchronization primitives (mutex, semaphore)
+  - Comprehensive IPC syscall interface
 
 - **I/O Subsystem**
   - Framebuffer console
   - Serial port communication
   - Keyboard input
   - Custom font rendering
+  - Interactive shell/REPL
+
+- **Interactive Shell**
+  - Command parser with argument support
+  - Built-in commands (help, clear, echo, memory, ps, power, exit)
+  - Command history with up/down arrow navigation
+  - Tab completion for command names
+  - Customizable prompt
+  - Line editing (cursor movement, backspace, delete)
+
+- **Virtual File System (VFS)**
+  - Pluggable file system interface
+  - In-memory file system implementation
+  - File operations (open, close, read, write, seek)
+  - Directory operations (mkdir, rmdir, readdir)
+  - Path resolution (absolute and relative)
+  - Per-process file descriptor tables
+
+- **Storage and File Systems**
+  - ATA/AHCI disk drivers for hard disk/SSD access
+  - MBR and GPT partition table support
+  - FAT32 file system (read and write)
+  - Disk caching with LRU eviction policy
+  - Block device abstraction layer
 
 - **Architecture Support**
   - x86_64 primary architecture
@@ -147,10 +197,19 @@ fangaos/
 ## Documentation
 
 - [Testing Guide](TESTING.md) - How to run and write tests
+- [Boot Sequence](docs/BOOT_SEQUENCE.md) - Kernel initialization and boot phases
 - [Memory Management](docs/MEMORY_MANAGEMENT.md) - Memory subsystem design
 - [Interrupt Handling](docs/INTERRUPT_HANDLING.md) - Interrupt architecture
+- [Timer Management](docs/TIMER_MANAGEMENT.md) - Timer and time management subsystem
+- [Power Management](docs/POWER_MANAGEMENT.md) - CPU, device, suspend/resume, hibernate, and battery management
 - [Input/Output](docs/INPUT_OUTPUT.md) - I/O subsystem design
 - [System Calls](docs/SYSTEM_CALLS.md) - System call interface
+- [Inter-Process Communication](docs/IPC.md) - IPC mechanisms and usage
+- [Interactive Shell](docs/SHELL.md) - Shell/REPL documentation
+- [Virtual File System](docs/VFS.md) - VFS architecture and file operations
+- [Storage and File Systems](docs/STORAGE.md) - Disk drivers, partitions, FAT32, and caching
+- [User Space Support](docs/USER_SPACE.md) - User mode applications, ELF loader, and minimal libc
+- [Networking](docs/NETWORKING.md) - Network stack, protocols, drivers, and socket API
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
 ## Development
@@ -225,13 +284,79 @@ FangaOS is currently in active development. Core features implemented:
 
 - ✅ Memory management (PMM, VMM, heap)
 - ✅ Interrupt handling (exceptions and IRQs)
+- ✅ Timer and time management (PIT, uptime tracking, delays)
+- ✅ Preemptive scheduling (time-slice based, priority queues)
 - ✅ Basic I/O (framebuffer, serial, keyboard)
 - ✅ System calls (syscall/sysret interface)
+- ✅ Power Management
+  - ✅ CPU frequency scaling (P-states)
+  - ✅ CPU idle states (C-states)
+  - ✅ Device power states (D0-D3)
+  - ✅ System suspend/resume (S1, S3)
+  - ✅ Hibernate support (S4)
+  - ✅ Battery management
+- ✅ Inter-Process Communication (IPC)
+  - ✅ Message queues
+  - ✅ Pipes (anonymous)
+  - ✅ Shared memory
+  - ✅ Signals
+  - ✅ Synchronization primitives (mutex, semaphore)
 - ✅ Comprehensive test suite
 - ✅ CI/CD pipeline
-- 🚧 Process management (in progress)
-- 🚧 File system (planned)
-- 🚧 Networking (planned)
+- ✅ Interactive shell/REPL with command history and tab completion
+- ✅ Virtual File System (VFS)
+  - ✅ Pluggable file system interface
+  - ✅ In-memory file system
+  - ✅ File operations (open, close, read, write, seek)
+  - ✅ Directory operations (mkdir, rmdir, readdir)
+  - ✅ Per-process file descriptor tables
+- ✅ Storage and Persistent File Systems
+  - ✅ ATA/IDE driver (PIO mode)
+  - ✅ AHCI driver structure (planned completion)
+  - ✅ MBR partition table support
+  - ✅ GPT partition table support
+  - ✅ FAT32 file system (read/write)
+  - ✅ Disk caching with LRU eviction
+  - ✅ Block device abstraction
+- ✅ User Space Support
+  - ✅ User/Kernel mode privilege separation (Ring 0/Ring 3)
+  - ✅ ELF64 binary loader
+  - ✅ User mode transition (IRET)
+  - ✅ Minimal libc with syscall wrappers
+  - ✅ User-space application support
+  - ✅ Sample user applications
+- ✅ Networking
+  - ✅ E1000 network card driver structure
+  - ✅ Ethernet frame handling
+  - ✅ ARP protocol implementation
+  - ✅ IPv4 stack with routing
+  - ✅ UDP protocol (connectionless)
+  - ✅ TCP protocol (connection-oriented) with state machine
+  - ✅ BSD-style socket API
+  - ✅ DHCP client structure
+- ✅ Advanced Process Management (Production-Ready)
+  - ✅ Multi-threading (kernel and user threads)
+  - ✅ Thread-local storage (TLS)
+  - ✅ Real-time scheduling (RT_FIFO, RT_RR, Deadline)
+  - ✅ CPU affinity for threads
+  - ✅ Advanced synchronization primitives
+    - ✅ Condition variables
+    - ✅ Read-write locks (RwLock)
+    - ✅ Synchronization barriers
+  - ✅ Process groups and sessions
+  - ✅ Job control (foreground/background)
+  - ✅ Controlling terminal
+  - ✅ Advanced signal handling
+    - ✅ Signal actions (sigaction)
+    - ✅ Signal masks (sigprocmask)
+    - ✅ Real-time signal queuing
+    - ✅ Signal delivery to process groups
+  - ✅ Core dump support
+    - ✅ Process state capture
+    - ✅ Register dumps
+    - ✅ Memory region dumps
+    - ✅ Core dump management
+- 🚧 Dynamic linking (planned)
 
 ## Resources
 

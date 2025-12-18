@@ -16,6 +16,9 @@ iso/
 *.iso
 *.img
 
+# User space build artifacts
+userspace/build/
+
 # =========================
 # Limine runtime artifacts
 # (keep the binaries, ignore temp junk)
