@@ -45,7 +45,10 @@ impl NumaMemoryPolicy {
     pub fn bind(nodes: &[NumaNodeId]) -> Self {
         let mut allowed_nodes = 0u64;
         for node in nodes {
-            allowed_nodes |= 1 << node.as_usize();
+            // Only add nodes that fit in 64-bit mask
+            if node.as_usize() < 64 {
+                allowed_nodes |= 1 << node.as_usize();
+            }
         }
         
         Self {
@@ -59,7 +62,10 @@ impl NumaMemoryPolicy {
     pub fn interleave(nodes: &[NumaNodeId]) -> Self {
         let mut allowed_nodes = 0u64;
         for node in nodes {
-            allowed_nodes |= 1 << node.as_usize();
+            // Only add nodes that fit in 64-bit mask
+            if node.as_usize() < 64 {
+                allowed_nodes |= 1 << node.as_usize();
+            }
         }
         
         Self {
@@ -80,6 +86,10 @@ impl NumaMemoryPolicy {
     
     /// Check if a node is allowed by this policy
     pub fn is_node_allowed(&self, node: NumaNodeId) -> bool {
+        // Node ID must be within valid range
+        if node.as_usize() >= 64 {
+            return false;
+        }
         (self.allowed_nodes & (1 << node.as_usize())) != 0
     }
     

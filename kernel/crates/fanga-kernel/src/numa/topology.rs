@@ -63,12 +63,19 @@ impl NumaNode {
     
     /// Get distance to another node
     pub fn distance_to(&self, other: NumaNodeId) -> u8 {
-        self.distances[other.as_usize()]
+        let idx = other.as_usize();
+        if idx >= MAX_NUMA_NODES {
+            return 255; // Unreachable
+        }
+        self.distances[idx]
     }
     
     /// Set distance to another node
     pub fn set_distance(&mut self, other: NumaNodeId, distance: u8) {
-        self.distances[other.as_usize()] = distance;
+        let idx = other.as_usize();
+        if idx < MAX_NUMA_NODES {
+            self.distances[idx] = distance;
+        }
     }
 }
 

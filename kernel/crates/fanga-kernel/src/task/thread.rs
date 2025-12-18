@@ -78,8 +78,11 @@ impl Default for ThreadAttributes {
 impl ThreadAttributes {
     /// Set CPU affinity to a specific CPU
     pub fn with_cpu_affinity(mut self, cpu: usize) -> Self {
-        self.cpu_affinity = Some(cpu);
-        self.cpu_affinity_mask = Some(1u64 << cpu);
+        // Ensure CPU ID is within valid range (0-63 for 64-bit mask)
+        if cpu < 64 {
+            self.cpu_affinity = Some(cpu);
+            self.cpu_affinity_mask = Some(1u64 << cpu);
+        }
         self
     }
     
@@ -92,6 +95,11 @@ impl ThreadAttributes {
     
     /// Check if thread can run on a specific CPU
     pub fn can_run_on_cpu(&self, cpu_id: usize) -> bool {
+        // CPU ID must be within valid range
+        if cpu_id >= 64 {
+            return false;
+        }
+        
         if let Some(mask) = self.cpu_affinity_mask {
             (mask & (1u64 << cpu_id)) != 0
         } else if let Some(affinity) = self.cpu_affinity {

@@ -93,7 +93,12 @@ pub fn init_percpu_data(cpu_id: CpuId) {
 /// Get the current CPU's per-CPU data
 pub fn current_cpu_data() -> &'static mut PerCpuData {
     let cpu_id = super::current_cpu_id();
-    unsafe { &mut *PER_CPU_DATA[cpu_id.as_usize()].get() }
+    // Bounds check to prevent array out of bounds
+    let idx = cpu_id.as_usize();
+    if idx >= MAX_CPUS {
+        panic!("Invalid CPU ID: {}", idx);
+    }
+    unsafe { &mut *PER_CPU_DATA[idx].get() }
 }
 
 /// Get a specific CPU's per-CPU data
