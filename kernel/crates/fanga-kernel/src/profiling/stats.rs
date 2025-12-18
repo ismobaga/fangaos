@@ -4,6 +4,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
+use alloc::format;
 
 /// Function-level statistics
 #[derive(Debug, Clone)]

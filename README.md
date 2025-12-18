@@ -210,6 +210,7 @@ fangaos/
 - [Storage and File Systems](docs/STORAGE.md) - Disk drivers, partitions, FAT32, and caching
 - [User Space Support](docs/USER_SPACE.md) - User mode applications, ELF loader, and minimal libc
 - [Networking](docs/NETWORKING.md) - Network stack, protocols, drivers, and socket API
+- [Scalability & Performance](docs/SCALABILITY_PERFORMANCE.md) - SMP, NUMA, profiling, and preemption
 - [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Overall design
 
 ## Development
@@ -356,6 +357,32 @@ FangaOS is currently in active development. Core features implemented:
     - ✅ Register dumps
     - ✅ Memory region dumps
     - ✅ Core dump management
+- ✅ Scalability & Performance
+  - ✅ SMP (Symmetric Multi-Processing) support
+    - ✅ Multi-core CPU detection and enumeration
+    - ✅ Per-CPU data structures
+    - ✅ Inter-Processor Interrupts (IPI)
+    - ✅ TLB shootdown for multi-core
+    - ✅ SMP-safe spinlocks
+  - ✅ CPU Affinity
+    - ✅ Thread pinning to specific cores
+    - ✅ Affinity masks for multiple CPUs
+    - ✅ Scheduler integration
+  - ✅ NUMA (Non-Uniform Memory Access) awareness
+    - ✅ NUMA topology detection
+    - ✅ NUMA-aware memory allocation
+    - ✅ Memory policies (bind, interleave, preferred)
+    - ✅ Distance metrics and node management
+  - ✅ Performance Profiling
+    - ✅ Sampling-based profiler
+    - ✅ Performance counter integration (PMU)
+    - ✅ Hotspot analysis
+    - ✅ Multiple output formats (text, JSON, CSV)
+  - ✅ Kernel Preemption
+    - ✅ Fully preemptible kernel
+    - ✅ Preemption counters and guards
+    - ✅ Preemption points
+    - ✅ Latency tracking
 - 🚧 Dynamic linking (planned)
 
 ## Resources
