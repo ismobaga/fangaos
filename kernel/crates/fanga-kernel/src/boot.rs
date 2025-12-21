@@ -49,16 +49,14 @@
 //!           └─> Display welcome message
 //! ```
 
-use crate::memory;
 use crate::io;
+use crate::memory;
+use crate::power;
 use crate::shell;
 use crate::task;
-use crate::power;
 
 use fanga_arch_x86_64 as arch;
-use limine::request::{
-    BootloaderInfoRequest, FramebufferRequest, HhdmRequest, MemoryMapRequest,
-};
+use limine::request::{BootloaderInfoRequest, FramebufferRequest, HhdmRequest, MemoryMapRequest};
 
 /* -------------------------------------------------------------------------- */
 /*                              BOOT PHASE 1: EARLY                            */
@@ -117,7 +115,9 @@ pub fn phase2_bootloader_protocol(
                 io::framebuffer::init(addr, width, height, pitch, bpp);
                 arch::serial_println!(
                     "[Boot Phase 2] Framebuffer console: {}x{} @ {}bpp",
-                    width, height, bpp
+                    width,
+                    height,
+                    bpp
                 );
             } else {
                 arch::serial_println!(
@@ -130,7 +130,11 @@ pub fn phase2_bootloader_protocol(
 
     // Log bootloader information
     if let Some(info) = bootloader_info_req.get_response() {
-        arch::serial_println!("[Boot Phase 2] Bootloader: {} {}", info.name(), info.version());
+        arch::serial_println!(
+            "[Boot Phase 2] Bootloader: {} {}",
+            info.name(),
+            info.version()
+        );
     }
 
     // Get critical bootloader information
@@ -150,7 +154,10 @@ pub fn phase2_bootloader_protocol(
         }
     }
     arch::serial_println!("[Boot Phase 2] Total memory: {} MiB", total / (1024 * 1024));
-    arch::serial_println!("[Boot Phase 2] Usable memory: {} MiB", usable / (1024 * 1024));
+    arch::serial_println!(
+        "[Boot Phase 2] Usable memory: {} MiB",
+        usable / (1024 * 1024)
+    );
 
     arch::serial_println!("[Boot Phase 2] Bootloader protocol complete ✅");
 
@@ -179,7 +186,7 @@ pub unsafe fn phase3_memory_init(ctx: &BootloaderContext) {
     // Initialize Physical Memory Manager (PMM)
     arch::serial_println!("[Boot Phase 3] Initializing PMM...");
     static mut PMM: memory::PhysicalMemoryManager = memory::PhysicalMemoryManager::new();
-    
+
     PMM.init(ctx.memory_map, ctx.hhdm_offset);
     arch::serial_println!(
         "[Boot Phase 3] PMM: {} pages total, {} free",
@@ -195,10 +202,7 @@ pub unsafe fn phase3_memory_init(ctx: &BootloaderContext) {
         // Allocate additional pages
         for i in 1..HEAP_PAGES {
             if PMM.alloc_page().is_none() {
-                arch::serial_println!(
-                    "[Boot Phase 3] Warning: Only allocated {} heap pages",
-                    i
-                );
+                arch::serial_println!("[Boot Phase 3] Warning: Only allocated {} heap pages", i);
                 break;
             }
         }
@@ -236,9 +240,7 @@ pub unsafe fn phase3_memory_init(ctx: &BootloaderContext) {
 
     for entry in ctx.memory_map.entries() {
         let region_type = match entry.entry_type {
-            limine::memory_map::EntryType::USABLE => {
-                memory::regions::MemoryRegionType::Available
-            }
+            limine::memory_map::EntryType::USABLE => memory::regions::MemoryRegionType::Available,
             limine::memory_map::EntryType::FRAMEBUFFER
             | limine::memory_map::EntryType::EXECUTABLE_AND_MODULES => {
                 memory::regions::MemoryRegionType::KernelData
@@ -356,7 +358,7 @@ pub fn phase6_post_init() {
     arch::serial_println!("[Boot Phase 6] Running post-initialization...");
 
     // Run process management demonstration
-    run_process_demo();
+    // run_process_demo();
 
     // Display welcome message
     display_welcome();
@@ -370,8 +372,8 @@ pub fn phase6_post_init() {
 
 /// Run process management demonstration
 fn run_process_demo() {
-    use crate::memory::{VirtAddr, PhysAddr};
-    
+    use crate::memory::{PhysAddr, VirtAddr};
+
     arch::serial_println!("");
     arch::serial_println!("===========================================");
     arch::serial_println!("   PROCESS MANAGEMENT DEMONSTRATION");
@@ -482,13 +484,9 @@ pub fn initialize(
     }
 
     // Phase 2: Bootloader protocol
-    let ctx = phase2_bootloader_protocol(
-        framebuffer_req,
-        bootloader_info_req,
-        memmap_req,
-        hhdm_req,
-    )
-    .ok_or("Failed to process bootloader protocol")?;
+    let ctx =
+        phase2_bootloader_protocol(framebuffer_req, bootloader_info_req, memmap_req, hhdm_req)
+            .ok_or("Failed to process bootloader protocol")?;
 
     // Phase 3: Memory initialization
     unsafe {
